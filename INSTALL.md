@@ -67,14 +67,14 @@ Merge one or more `.log` files into a self-contained HTML file:
 ```bash
 # Two panes in one tab
 uv run utils/merge_logs.py \
-    --tab "UART" "Reader" logs/reader.log \
-                 "Controller" logs/controller.log \
+    --tab "UART" "Device A" logs/device-a.log \
+                 "Device B" logs/device-b.log \
     --output merged.html
 
 # Two tabs
 uv run utils/merge_logs.py \
-    --tab "UART"   "Reader"     logs/reader.log \
-                   "Controller" logs/controller.log \
+    --tab "UART"   "Device A" logs/device-a.log \
+                   "Device B" logs/device-b.log \
     --tab "PYTEST" "Pytest"     logs/pytest.log \
     --output run-42.html
 ```

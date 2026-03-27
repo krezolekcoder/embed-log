@@ -9,14 +9,14 @@ and HTML export. No server or browser extension required.
 Usage:
     # Two panes in one tab
     python3 merge_logs.py \\
-        --tab "UART" "GWL LNK Reader" logs/READER.log \\
-                     "GWL LNK Controller" logs/CONTROLLER.log \\
+        --tab "UART" "Device A" logs/DEVICE_A.log \\
+                     "Device B" logs/DEVICE_B.log \\
         --output merged.html
 
     # Two tabs: UART (2 panes) + PYTEST (1 pane)
     python3 merge_logs.py \\
-        --tab "UART"   "GWL LNK Reader"     logs/READER.log \\
-                       "GWL LNK Controller" logs/CONTROLLER.log \\
+        --tab "UART"   "Device A" logs/DEVICE_A.log \\
+                       "Device B" logs/DEVICE_B.log \\
         --tab "PYTEST" "Pytest"             logs/pytest.log
 
 Each --tab takes:   TAB_LABEL  PANE_LABEL FILE  [PANE_LABEL FILE]
@@ -418,13 +418,13 @@ def main():
         epilog="""examples:
   # One tab, two panes
   python merge_logs.py \\
-      --tab "UART" "GWL LNK Reader"     logs/READER.log \\
-                   "GWL LNK Controller" logs/CONTROLLER.log
+      --tab "UART" "Device A" logs/DEVICE_A.log \\
+                   "Device B" logs/DEVICE_B.log
 
   # Two tabs: UART (2 panes) + PYTEST (1 pane)
   python merge_logs.py \\
-      --tab "UART"   "GWL LNK Reader"     logs/READER.log \\
-                     "GWL LNK Controller" logs/CONTROLLER.log \\
+      --tab "UART"   "Device A" logs/DEVICE_A.log \\
+                     "Device B" logs/DEVICE_B.log \\
       --tab "PYTEST" "Pytest"             logs/pytest.log \\
       --output run-42.html
 """,

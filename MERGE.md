@@ -15,13 +15,13 @@ HTML export.
 ```bash
 # Two UART logs in one tab
 python3 utils/merge_logs.py \
-    --tab "UART" "GWL LNK Reader"     logs/READER.log \
-                 "GWL LNK Controller" logs/CONTROLLER.log
+    --tab "UART" "Device A" logs/DEVICE_A.log \
+                 "Device B" logs/DEVICE_B.log
 
 # Two UART logs + a pytest log in a separate tab
 python3 utils/merge_logs.py \
-    --tab "UART"   "GWL LNK Reader"     logs/READER.log \
-                   "GWL LNK Controller" logs/CONTROLLER.log \
+    --tab "UART"   "Device A" logs/DEVICE_A.log \
+                   "Device B" logs/DEVICE_B.log \
     --tab "PYTEST" "Pytest"             logs/pytest.log \
     --output run-42.html
 ```
@@ -56,7 +56,7 @@ draggable splitter between them.
 | Scenario | `--tab` arguments |
 |---|---|
 | Single pane | `--tab "PYTEST" "Pytest" logs/pytest.log` |
-| Two panes | `--tab "UART" "Reader" reader.log "Controller" controller.log` |
+| Two panes | `--tab "UART" "Device A" device-a.log "Device B" device-b.log` |
 
 Pane labels must be unique across all tabs (they are used as HTML element IDs).
 
@@ -111,8 +111,8 @@ UI.
   if: always()
   run: |
     python utils/merge_logs.py \
-      --tab "UART"   "GWL LNK Reader"     $CI_PROJECT_DIR/logs/READER.log \
-                     "GWL LNK Controller" $CI_PROJECT_DIR/logs/CONTROLLER.log \
+      --tab "UART"   "Device A" $CI_PROJECT_DIR/logs/DEVICE_A.log \
+                     "Device B" $CI_PROJECT_DIR/logs/DEVICE_B.log \
       --tab "PYTEST" "Pytest"             $CI_PROJECT_DIR/logs/pytest.log \
       --output $CI_PROJECT_DIR/logs/merged-$CI_JOB_ID.html
 

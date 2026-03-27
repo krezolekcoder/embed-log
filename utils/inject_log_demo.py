@@ -8,17 +8,17 @@ CLI mirrors the server naming style by using repeated:
 
 Run the log server first:
     python3 backend/server.py \
-        --source READER     uart:/dev/ttyFTDI_A \
-        --source CONTROLLER uart:/dev/ttyFTDI_B \
-        --inject READER     5001 \
-        --inject CONTROLLER 5002 \
-        --tab "Devices" READER CONTROLLER \
+        --source DEVICE_A uart:/dev/ttyUSB0 \
+        --source DEVICE_B uart:/dev/ttyUSB1 \
+        --inject DEVICE_A 5001 \
+        --inject DEVICE_B 5002 \
+        --tab "Devices" DEVICE_A DEVICE_B \
         --ws-port 8080
 
 Then in a separate terminal:
     python3 utils/inject_log_demo.py \
-        --inject READER 5001 \
-        --inject CONTROLLER 5002
+        --inject DEVICE_A 5001 \
+        --inject DEVICE_B 5002
 """
 
 import argparse

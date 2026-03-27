@@ -3,11 +3,11 @@ embed-log — log aggregator with WebSocket UI and TCP inject port.
 
 Usage:
     python3 server.py
-        --source READER     uart:/dev/ttyFTDI_A
-        --source CONTROLLER uart:/dev/ttyFTDI_B
-        --inject READER     5001
-        --inject CONTROLLER 5002
-        --tab "Devices" READER CONTROLLER
+        --source DEVICE_A uart:/dev/ttyUSB0
+        --source DEVICE_B uart:/dev/ttyUSB1
+        --inject DEVICE_A 5001
+        --inject DEVICE_B 5002
+        --tab "Devices" DEVICE_A DEVICE_B
         --ws-port 8080
 """
 
@@ -618,11 +618,11 @@ def _build_parser() -> argparse.ArgumentParser:
         epilog=(
             "Example:\n"
             "  python server.py \\\n"
-            "    --source READER     uart:/dev/ttyFTDI_A \\\n"
-            "    --source CONTROLLER uart:/dev/ttyFTDI_B \\\n"
-            "    --inject READER     5001 \\\n"
-            "    --inject CONTROLLER 5002 \\\n"
-            "    --tab 'Devices' READER CONTROLLER \\\n"
+            "    --source DEVICE_A uart:/dev/ttyUSB0 \\\n"
+            "    --source DEVICE_B uart:/dev/ttyUSB1 \\\n"
+            "    --inject DEVICE_A 5001 \\\n"
+            "    --inject DEVICE_B 5002 \\\n"
+            "    --tab 'Devices' DEVICE_A DEVICE_B \\\n"
             "    --ws-port 8080"
         ),
     )

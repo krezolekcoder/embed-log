@@ -125,35 +125,35 @@ All commands are run from the project root directory.
 ```bash
 # Single UART source, no browser UI
 python3 backend/server.py \
-  --source READER uart:/dev/ttyFTDI_A \
-  --inject READER 5001
+  --source DEVICE_A uart:/dev/ttyUSB0 \
+  --inject DEVICE_A 5001
 
 # Two UART sources, side-by-side in the browser
 python3 backend/server.py \
-  --source READER     uart:/dev/ttyFTDI_A \
-  --source CONTROLLER uart:/dev/ttyFTDI_B \
-  --inject READER     5001 \
-  --inject CONTROLLER 5002 \
-  --tab "Devices" READER CONTROLLER \
+  --source DEVICE_A uart:/dev/ttyUSB0 \
+  --source DEVICE_B uart:/dev/ttyUSB1 \
+  --inject DEVICE_A 5001 \
+  --inject DEVICE_B 5002 \
+  --tab "Devices" DEVICE_A DEVICE_B \
   --ws-port 8080
 
 # Mixed sources — UART + tailed file + UDP listener
 python3 backend/server.py \
-  --source READER   uart:/dev/ttyFTDI_A \
+  --source DEVICE_A uart:/dev/ttyUSB0 \
   --source APP_LOG  file:/var/log/app.log \
   --source SENSOR   udp:6000 \
-  --inject READER   5001 \
-  --tab "Hardware" READER \
+  --inject DEVICE_A 5001 \
+  --tab "Hardware" DEVICE_A \
   --tab "Software" APP_LOG SENSOR \
   --ws-port 8080
 
 # All options
 python3 backend/server.py \
-  --source READER     uart:/dev/ttyFTDI_A@9600 \
-  --source CONTROLLER uart:/dev/ttyFTDI_B \
-  --inject READER     5001 \
-  --inject CONTROLLER 5002 \
-  --tab "Devices" READER CONTROLLER \
+  --source DEVICE_A uart:/dev/ttyUSB0@9600 \
+  --source DEVICE_B uart:/dev/ttyUSB1 \
+  --inject DEVICE_A 5001 \
+  --inject DEVICE_B 5002 \
+  --tab "Devices" DEVICE_A DEVICE_B \
   --baudrate 115200 \
   --log-dir /tmp/ci-logs/ \
   --host 0.0.0.0 \
@@ -219,9 +219,9 @@ Serial lines are plain timestamped text. Injected markers and TX commands keep t
 Every line carries `[device][source]`:
 
 ```
-[2026-03-25T11:50:09.900+01:00] [GWL LNK Reader] [SERIAL] free: 62832, used: 93976
-[2026-03-25T11:49:59.870+01:00] [GWL LNK Reader] [demo] sending 'heap stat' command
-[2026-03-25T11:49:59.872+01:00] [GWL LNK Reader] [TX::demo] heap stat
+[2026-03-25T11:50:09.900+01:00] [DEVICE_A] [SERIAL] free: 62832, used: 93976
+[2026-03-25T11:49:59.870+01:00] [DEVICE_A] [demo] sending 'heap stat' command
+[2026-03-25T11:49:59.872+01:00] [DEVICE_A] [TX::demo] heap stat
 ```
 
 Timestamps are ISO 8601 with milliseconds and timezone offset.
@@ -353,11 +353,11 @@ echo '{"type":"tx","source":"manual","data":"reboot\r\n"}' \
 - name: Start embed-log
   run: |
     python3 backend/server.py \
-      --source READER     uart:/dev/ttyFTDI_A \
-      --source CONTROLLER uart:/dev/ttyFTDI_B \
-      --inject READER     5001 \
-      --inject CONTROLLER 5002 \
-      --tab "Devices" READER CONTROLLER \
+      --source DEVICE_A uart:/dev/ttyUSB0 \
+      --source DEVICE_B uart:/dev/ttyUSB1 \
+      --inject DEVICE_A 5001 \
+      --inject DEVICE_B 5002 \
+      --tab "Devices" DEVICE_A DEVICE_B \
       --log-dir $CI_PROJECT_DIR/logs/ \
       --ws-port 8080 &
     echo $! > /tmp/embed-log.pid
