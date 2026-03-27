@@ -1,4 +1,5 @@
-"use strict";
+import { state, PANES } from './state.js';
+import { onLineClick } from './lines.js';
 
 // ---------------------------------------------------------------------------
 // Line selection + copy
@@ -46,7 +47,7 @@
 // ---------------------------------------------------------------------------
 // Inject per-pane copy button
 // ---------------------------------------------------------------------------
-function _selectionSetupPane(id) {
+export function _selectionSetupPane(id) {
     const body = document.querySelector(`#pane-${id} .pane-body`);
     if (!body) return;
     const btn = document.createElement("button");
@@ -56,15 +57,6 @@ function _selectionSetupPane(id) {
     body.appendChild(btn);
 }
 PANES.forEach(_selectionSetupPane);
-
-// ---------------------------------------------------------------------------
-// Patch clearPane (lines.js) so the copy button hides after a clear
-// ---------------------------------------------------------------------------
-const _clearPaneBase = clearPane;
-clearPane = function (paneId) {
-    _clearPaneBase(paneId);               // also resets state.selected[paneId]
-    _applySelection(paneId);              // removes .selected classes + hides btn
-};
 
 // ---------------------------------------------------------------------------
 // Helpers

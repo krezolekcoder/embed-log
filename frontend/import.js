@@ -1,4 +1,10 @@
-"use strict";
+import { state, PANES } from './state.js';
+import { parseAnsi, tsToNum } from './ansi.js';
+import { parseLogLine } from './tsparse.js';
+import {
+    clearPane, _lineClass, matchesFilter, buildLineHtml,
+    onLineClick, onMiddleClick, updateJumpBtn,
+} from './lines.js';
 
 // ---------------------------------------------------------------------------
 // File import — load .log files into any pane
@@ -14,8 +20,6 @@
 //
 // All lines are bulk-inserted via DocumentFragment — one DOM write per file.
 // ---------------------------------------------------------------------------
-
-// Timestamp parsing is provided by tsparse.js (loaded before this file).
 
 function _loadTextIntoPane(paneId, text) {
     clearPane(paneId);
@@ -91,7 +95,7 @@ function _importFile(paneId, file) {
 // ---------------------------------------------------------------------------
 // Per-pane: import button + drag-and-drop
 // ---------------------------------------------------------------------------
-function _importSetupPane(id) {
+export function _importSetupPane(id) {
     const header = document.querySelector(`#pane-${id} .pane-header`);
     if (!header) return;
 

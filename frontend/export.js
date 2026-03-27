@@ -1,4 +1,4 @@
-"use strict";
+import { state, TABS, PANES } from './state.js';
 
 async function exportToHtml() {
     const btn  = document.getElementById("btn-export");
@@ -24,17 +24,29 @@ async function exportToHtml() {
             "ui.js",      "settings.js", "tsparse.js", "import.js", "selection.js",
             "themes.js",  "tabcreate.js", "export.js",
         ];
+
         // _escJs: make a JS source string safe to embed inside <script>…<\/script>.
         // The HTML parser ends a script block at the first <\/script it sees
         // (case-insensitive), even inside comments or string literals.
-        // Replacing <\/script with <\/script is invisible to the JS engine but
-        // prevents the HTML tokeniser from closing the tag early.
         const _escJs = src => src.replace(/<\/script/gi, "<\\/script");
+
+        // Strip ES module import/export syntax so JS files can be embedded as
+        // classic <script> blocks in the self-contained static HTML output.
+        function _stripModuleSyntax(src) {
+            return src
+                // Remove import statements (single-line)
+                .replace(/^import\s+.*?['"][^'"]*['"]\s*;?\r?\n?/gm, '')
+                // Remove export keyword from declarations
+                .replace(/^export\s+(async\s+)?(function|class|const|let|var)\b/gm, '$2')
+                // Remove standalone export { ... } statements
+                .replace(/^export\s*\{[^}]*\}\s*(?:from\s*['"][^'"]*['"])?\s*;?\r?\n?/gm, '');
+        }
 
         const texts = await Promise.all(ASSETS.map(async a => {
             const r = await fetch(a, {cache: "no-store"});
             if (!r.ok) throw new Error(`Failed to fetch ${a}: ${r.status}`);
-            return _escJs(await r.text());
+            const src = await r.text();
+            return a.endsWith(".js") ? _escJs(_stripModuleSyntax(src)) : src;
         }));
         const [css, stateJs, ansiJs, linesJs, tabsJs, uiJs, settingsJs,
                tsparseJs, importJs, selectionJs, themesJs, tabcreateJs, exportJs] = texts;
@@ -59,11 +71,11 @@ async function exportToHtml() {
             `\n}`;
 
         // ------------------------------------------------------------------
-        // Config: inject TABS + PANES before state.js so it skips its defaults
+        // Config: inject TABS + PANES via window before state.js reads them
         // ------------------------------------------------------------------
         const configJs =
-            `var TABS = ${_safeJson(TABS)};\n` +
-            `var PANES = ${_safeJson(PANES)};`;
+            `window.TABS = ${_safeJson(TABS)};\n` +
+            `window.PANES = ${_safeJson(PANES)};`;
 
         // ------------------------------------------------------------------
         // Serialize all pane data as { ts, text, isTx }.

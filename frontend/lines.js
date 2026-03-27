@@ -1,11 +1,8 @@
-"use strict";
+import { state, TABS, PANES } from './state.js';
+import { parseAnsi, tsToNum } from './ansi.js';
 
 // ---------------------------------------------------------------------------
 // Line rendering
-// ---------------------------------------------------------------------------
-
-// ---------------------------------------------------------------------------
-// Settings-driven content transforms
 // ---------------------------------------------------------------------------
 
 function _formatTs(ts) {
@@ -38,7 +35,7 @@ function _applyEmbeddedTs(html) {
     return html.replace(_EMB_TS_RE, m => `<span class="emb-ts">${m}</span>`);
 }
 
-function buildLineHtml(line, showTs, filterRx) {
+export function buildLineHtml(line, showTs, filterRx) {
     const tsClass = "ts" + (showTs ? "" : " hidden");
     let content = _applyEmbeddedTs(line.html);
     if (filterRx) {
@@ -48,20 +45,20 @@ function buildLineHtml(line, showTs, filterRx) {
 }
 
 // Build the full className string for a log-line div, preserving selection state.
-function _lineClass(line, idx, paneId) {
+export function _lineClass(line, idx, paneId) {
     return "log-line"
         + (line.isTx ? " tx-line" : "")
         + _lineTagClass(line.html)
         + (state.selected[paneId].has(idx) ? " selected" : "");
 }
 
-function matchesFilter(line, rx) {
+export function matchesFilter(line, rx) {
     if (!rx) return true;
     const plain = line.html.replace(/<[^>]+>/g, "") + " " + line.ts;
     return rx.test(plain);
 }
 
-function appendLine(paneId, ts, rawText, isTx) {
+export function appendLine(paneId, ts, rawText, isTx) {
     const html  = parseAnsi(rawText);
     const numTs = tsToNum(ts);
     const line  = { ts, numTs, html, rawText, isTx };
@@ -90,7 +87,7 @@ function appendLine(paneId, ts, rawText, isTx) {
     updateJumpBtn(paneId);
 }
 
-function rerenderPane(paneId) {
+export function rerenderPane(paneId) {
     const logEl = document.getElementById("log-" + paneId);
     const lines = state.rawLines[paneId];
     const divs  = logEl.children;
@@ -115,12 +112,12 @@ function rerenderPane(paneId) {
 // Jump-to-bottom
 // ---------------------------------------------------------------------------
 
-function updateJumpBtn(paneId) {
+export function updateJumpBtn(paneId) {
     document.getElementById("jump-" + paneId)
         .classList.toggle("visible", !state.atBottom[paneId]);
 }
 
-function _linesSetupPane(id) {
+export function _linesSetupPane(id) {
     const logEl = document.getElementById("log-" + id);
     logEl.addEventListener("scroll", () => {
         state.atBottom[id] = logEl.scrollHeight - logEl.scrollTop - logEl.clientHeight < 40;
@@ -140,13 +137,15 @@ PANES.forEach(_linesSetupPane);
 // Clear
 // ---------------------------------------------------------------------------
 
-function clearPane(paneId) {
+export function clearPane(paneId) {
     state.rawLines[paneId] = [];
     state.selected[paneId] = new Set();
     document.getElementById("log-" + paneId).innerHTML = "";
     highlightLine(paneId, null);
     state.atBottom[paneId] = true;
     updateJumpBtn(paneId);
+    // Hide the copy button if selection.js has added one
+    document.getElementById("copy-" + paneId)?.classList.remove("visible");
 }
 
 document.getElementById("btn-clear").addEventListener("click", () => PANES.forEach(clearPane));
@@ -155,7 +154,7 @@ document.getElementById("btn-clear").addEventListener("click", () => PANES.forEa
 // Sync
 // ---------------------------------------------------------------------------
 
-function highlightLine(paneId, div) {
+export function highlightLine(paneId, div) {
     const prev = state.highlighted[paneId];
     if (prev) prev.classList.remove("sync-highlight");
     state.highlighted[paneId] = div;
@@ -164,7 +163,7 @@ function highlightLine(paneId, div) {
 
 // Scroll a pane to the line closest to numTs — used when switching tabs.
 // Centers the matched line at ~1/3 from the top.
-function scrollPaneToTs(paneId, numTs) {
+export function scrollPaneToTs(paneId, numTs) {
     if (numTs === null) return;
     const lines = state.rawLines[paneId];
     if (!lines.length) return;
@@ -189,7 +188,7 @@ function scrollPaneToTs(paneId, numTs) {
 
 // Middle-click: always clear the filter for this pane, scroll to the line
 // in full context, and sync — the deliberate "zoom out to this moment" gesture.
-function onMiddleClick(paneId, numTs, div) {
+export function onMiddleClick(paneId, numTs, div) {
     const logEl = document.getElementById("log-" + paneId);
 
     if (state.filters[paneId]) {
@@ -213,7 +212,7 @@ function onMiddleClick(paneId, numTs, div) {
 //   • filter active  → clear filter, re-render, scroll source to line in context
 //   • no filter      → source pane stays exactly where user was (no scroll)
 //   • always         → store syncTs, highlight clicked line, sync other panes in active tab
-function onLineClick(paneId, numTs, div) {
+export function onLineClick(paneId, numTs, div) {
     const logEl = document.getElementById("log-" + paneId);
 
     if (state.filters[paneId]) {
@@ -235,7 +234,7 @@ function onLineClick(paneId, numTs, div) {
 
 // Sync all OTHER panes in the active tab to numTs, mirroring the clicked
 // line's Y position within the viewport.
-function syncPanes(fromId, numTs, clickedDiv) {
+export function syncPanes(fromId, numTs, clickedDiv) {
     const activePanes = TABS[state.activeTab].panes;
     if (activePanes.length < 2) return;
 

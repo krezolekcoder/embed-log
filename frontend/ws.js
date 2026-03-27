@@ -1,4 +1,7 @@
-"use strict";
+import { state, PANES } from './state.js';
+import { appendLine } from './lines.js';
+import { createTabWithPanes, createDynamicTab } from './tabcreate.js';
+import { switchTab } from './tabs.js';
 
 let ws = null;
 let wsRetryDelay = 1000;
@@ -10,11 +13,15 @@ function wsSetStatus(cls, text) {
     wsStatus.textContent  = "WS: " + text;
 }
 
-function wsSend(obj) {
+export function wsSend(obj) {
     if (ws && ws.readyState === WebSocket.OPEN) {
         ws.send(JSON.stringify(obj));
     }
 }
+
+// Expose wsSend globally so ui.js can call it without a circular import.
+// In static exports this is stubbed to a no-op by the bootstrap script.
+window.wsSend = wsSend;
 
 function wsConnect() {
     wsSetStatus("connecting", "connecting…");

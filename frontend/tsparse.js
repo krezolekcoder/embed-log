@@ -1,5 +1,3 @@
-"use strict";
-
 // ---------------------------------------------------------------------------
 // Multi-format log-line timestamp parser
 //
@@ -24,7 +22,7 @@ function _ms3(frac) {
 }
 
 // Returns { ts: "MM-DD HH:MM:SS.mmm", data: <rest of line> } or null.
-function parseLogLine(raw) {
+export function parseLogLine(raw) {
     const s = raw.trimStart();
     let m;
 

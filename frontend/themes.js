@@ -1,5 +1,3 @@
-"use strict";
-
 // ---------------------------------------------------------------------------
 // Temporary palette + font explorer
 // Three toolbar selects: dark themes · light themes · fonts

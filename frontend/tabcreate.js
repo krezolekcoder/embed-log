@@ -1,4 +1,9 @@
-"use strict";
+import { state, TABS, PANES } from './state.js';
+import { _linesSetupPane } from './lines.js';
+import { _uiSetupPane, _uiSetupTxPane } from './ui.js';
+import { _selectionSetupPane } from './selection.js';
+import { _importSetupPane } from './import.js';
+import { renderTabBar, switchTab } from './tabs.js';
 
 // ---------------------------------------------------------------------------
 // Tab creation
@@ -14,7 +19,7 @@
 //   that arrive without a prior config message.
 // ---------------------------------------------------------------------------
 
-function createTabWithPanes(label, paneIds, { switchTo = true } = {}) {
+export function createTabWithPanes(label, paneIds, { switchTo = true } = {}) {
     const tabIdx = TABS.length;
 
     // ---- 1. State ----
@@ -76,7 +81,7 @@ function createTabWithPanes(label, paneIds, { switchTo = true } = {}) {
 }
 
 
-function createDynamicTab(label, paneId) {
+export function createDynamicTab(label, paneId) {
     if (label === undefined) {
         const name = window.prompt("New tab name:", "Tab " + (TABS.length + 1));
         if (name === null || !name.trim()) return;
@@ -87,7 +92,7 @@ function createDynamicTab(label, paneId) {
 }
 
 
-function _escHtml(str) {
+export function _escHtml(str) {
     return str
         .replace(/&/g, "&amp;")
         .replace(/</g, "&lt;")

@@ -1,7 +1,5 @@
-"use strict";
-
 // SGR code → CSS class
-const ANSI_MAP = {
+export const ANSI_MAP = {
     "1":  "ansi-b",
     "31": "ansi-1", "32": "ansi-2", "33": "ansi-3",
     "34": "ansi-4", "35": "ansi-5", "36": "ansi-6", "37": "ansi-7",
@@ -10,7 +8,7 @@ const ANSI_MAP = {
 // Convert raw text with ANSI escape sequences to safe HTML.
 // SGR color/bold codes → <span class="ansi-N">
 // All other sequences (cursor movement, erase, OSC, bare ESC) → stripped silently.
-function parseAnsi(raw) {
+export function parseAnsi(raw) {
     let s = raw
         .replace(/&/g, "&amp;")
         .replace(/</g, "&lt;")
@@ -45,6 +43,6 @@ function parseAnsi(raw) {
 }
 
 // "03-25 11:50:00.123"  →  strip non-digits  →  sortable integer
-function tsToNum(ts) {
+export function tsToNum(ts) {
     return parseInt(ts.replace(/\D/g, ""), 10) || 0;
 }

@@ -1,0 +1,16 @@
+[project]
+name = "embed-log"
+version = "0.1.0"
+description = "Serial log server for embedded device CI with live browser UI"
+requires-python = ">=3.11"
+dependencies = [
+    "pyserial>=3.5",
+    "aiohttp>=3.9",
+]
+
+[project.scripts]
+embed-log = "backend.server:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

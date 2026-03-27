@@ -1,18 +1,11 @@
-"use strict";
-
 // Tab definitions — each tab shows 1 or 2 panes side-by-side.
-// merge_logs.py / export.js inject a replacement before this file loads for static files.
-// In live mode TABS starts empty and is populated dynamically by ws.js.
-if (typeof TABS === "undefined") {
-    var TABS = [];
-}
+// In live mode TABS/PANES start empty; ws.js populates them dynamically.
+// In static mode (export/merge_logs) a classic <script> sets window.TABS and
+// window.PANES before this module runs so the per-pane state is pre-seeded.
+export const TABS  = window.TABS  ?? [];
+export const PANES = window.PANES ?? [...new Set(TABS.flatMap(t => t.panes))];
 
-// All pane IDs across all tabs (derived from TABS — do not set manually).
-if (typeof PANES === "undefined") {
-    var PANES = [...new Set(TABS.flatMap(t => t.panes))];
-}
-
-const state = {
+export const state = {
     wrap:        false,
     showTs:      true,
     syncEnabled: true,

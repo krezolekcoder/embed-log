@@ -1,4 +1,5 @@
-"use strict";
+import { state, PANES } from './state.js';
+import { rerenderPane } from './lines.js';
 
 // ---------------------------------------------------------------------------
 // Settings panel — injected after #toolbar
@@ -52,26 +53,6 @@
             PANES.forEach(rerenderPane);
         });
         return btn;
-    }
-
-    // Group of mutually exclusive buttons; returns the array so the caller
-    // can keep references if needed.
-    function makeRadioGroup(options, current, onChange) {
-        return options.map(([value, text]) => {
-            const btn = document.createElement("button");
-            btn.textContent = text;
-            btn.dataset.value = value;
-            btn.classList.toggle("active", value === current);
-            btn.addEventListener("click", () => {
-                if (btn.classList.contains("active")) return; // already selected
-                grp.forEach(b => b.classList.remove("active"));
-                btn.classList.add("active");
-                onChange(value);
-                PANES.forEach(rerenderPane);
-            });
-            return btn;
-        });
-        // `grp` is bound below after the array exists
     }
 
     // ---- Time format ----

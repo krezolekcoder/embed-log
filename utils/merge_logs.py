@@ -177,6 +177,18 @@ def _read_asset(filename: str) -> str:
         return fh.read()
 
 
+def _strip_module_syntax(src: str) -> str:
+    """Remove ES module import/export statements so JS can be embedded as a
+    classic <script> block in the self-contained static HTML output."""
+    # Remove import statements (single-line)
+    src = re.sub(r"^import\s+.*?['\"][^'\"]*['\"]\s*;?\r?\n?", "", src, flags=re.MULTILINE)
+    # Remove export keyword from declarations (function, class, const, let, var)
+    src = re.sub(r"^export\s+(async\s+)?(function|class|const|let|var)\b", r"\2", src, flags=re.MULTILINE)
+    # Remove standalone export { ... } statements
+    src = re.sub(r"^export\s*\{[^}]*\}\s*(?:from\s*['\"][^'\"]*['"])?\s*;?\r?\n?", "", src, flags=re.MULTILINE)
+    return src
+
+
 # ---------------------------------------------------------------------------
 # HTML generation
 # ---------------------------------------------------------------------------
@@ -236,20 +248,23 @@ def generate_html(tab_specs: list) -> str:
             log_data[pane_id] = entries
             print(f"  [{tab['label']}] {pane_label!r}: {len(entries)} lines  ({file_path})")
 
-    # Read frontend assets
-    css       = _read_asset("viewer.css")
-    state_js  = _read_asset("state.js")
-    ansi_js   = _read_asset("ansi.js")
-    lines_js  = _read_asset("lines.js")
-    tabs_js   = _read_asset("tabs.js")
-    ui_js        = _read_asset("ui.js")
-    settings_js  = _read_asset("settings.js")
-    tsparse_js   = _read_asset("tsparse.js")
-    import_js    = _read_asset("import.js")
-    selection_js = _read_asset("selection.js")
-    themes_js    = _read_asset("themes.js")
-    tabcreate_js = _read_asset("tabcreate.js")
-    export_js    = _read_asset("export.js")
+    # Read frontend assets (strip ES module syntax for classic <script> embedding)
+    def _js(filename: str) -> str:
+        return _strip_module_syntax(_read_asset(filename))
+
+    css          = _read_asset("viewer.css")
+    state_js     = _js("state.js")
+    ansi_js      = _js("ansi.js")
+    lines_js     = _js("lines.js")
+    tabs_js      = _js("tabs.js")
+    ui_js        = _js("ui.js")
+    settings_js  = _js("settings.js")
+    tsparse_js   = _js("tsparse.js")
+    import_js    = _js("import.js")
+    selection_js = _js("selection.js")
+    themes_js    = _js("themes.js")
+    tabcreate_js = _js("tabcreate.js")
+    export_js    = _js("export.js")
     # ws.js intentionally omitted — no WebSocket in static mode
 
     # Build JS structures
@@ -276,12 +291,12 @@ def generate_html(tab_specs: list) -> str:
 
     title = _html.escape(" + ".join(tab["label"] for tab in tab_specs))
 
-    # Config script: defines TABS and PANES before state.js loads.
-    # state.js checks `typeof TABS === "undefined"` and skips its defaults
-    # when these are already set.
+    # Config script: sets window.TABS and window.PANES before state.js loads.
+    # state.js reads window.TABS ?? [] so pre-populated panes are initialised
+    # correctly when the module runs.
     config_js = (
-        f"var TABS = {tabs_json};\n"
-        f"var PANES = {panes_json};"
+        f"window.TABS = {tabs_json};\n"
+        f"window.PANES = {panes_json};"
     )
 
     # Bootstrap script: runs after all other scripts to inject log data

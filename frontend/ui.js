@@ -1,4 +1,5 @@
-"use strict";
+import { state, PANES } from './state.js';
+import { rerenderPane } from './lines.js';
 
 // ---------------------------------------------------------------------------
 // Toolbar — wrap
@@ -66,7 +67,7 @@ btnSync.addEventListener("click", () => {
 // ---------------------------------------------------------------------------
 // Filter inputs
 // ---------------------------------------------------------------------------
-function _uiSetupPane(id) {
+export function _uiSetupPane(id) {
     const input = document.querySelector(`.filter-input[data-pane="${id}"]`);
     if (!input) return;
     input.addEventListener("input", () => {
@@ -90,6 +91,7 @@ PANES.forEach(_uiSetupPane);
 
 // ---------------------------------------------------------------------------
 // Serial TX input — Enter or Send button
+// wsSend is provided by ws.js in live mode, or stubbed in static exports.
 // ---------------------------------------------------------------------------
 function sendSerial(paneId) {
     const input = document.getElementById("input-" + paneId);
@@ -97,10 +99,10 @@ function sendSerial(paneId) {
     const text  = input.value.trim();
     if (!text) return;
     input.value = "";
-    wsSend({ cmd: "send_raw", id: paneId, data: text + "\n" });
+    window.wsSend?.({ cmd: "send_raw", id: paneId, data: text + "\n" });
 }
 
-function _uiSetupTxPane(id) {
+export function _uiSetupTxPane(id) {
     const input = document.getElementById("input-" + id);
     if (!input) return;
     input.addEventListener("keydown", e => {

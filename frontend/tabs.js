@@ -1,10 +1,12 @@
-"use strict";
+import { state, TABS } from './state.js';
+import { scrollPaneToTs } from './lines.js';
+import { createDynamicTab } from './tabcreate.js';
 
 // ---------------------------------------------------------------------------
 // Tab bar
 // ---------------------------------------------------------------------------
 
-function renderTabBar() {
+export function renderTabBar() {
     const bar = document.getElementById("tab-bar");
     if (!bar) return;
 
@@ -21,14 +23,12 @@ function renderTabBar() {
         });
     }
 
-    // "+" button — always present; calls createDynamicTab (defined in tabcreate.js)
+    // "+" button — always present
     const addBtn = document.createElement("button");
     addBtn.className   = "tab-btn tab-add";
     addBtn.textContent = "+";
     addBtn.title       = "New tab";
-    addBtn.addEventListener("click", () => {
-        if (typeof createDynamicTab === "function") createDynamicTab();
-    });
+    addBtn.addEventListener("click", () => createDynamicTab());
     bar.appendChild(addBtn);
 
     // Ensure correct initial visibility of tab contents
@@ -42,7 +42,7 @@ function renderTabBar() {
 // Tab switching
 // ---------------------------------------------------------------------------
 
-function switchTab(newIdx) {
+export function switchTab(newIdx) {
     if (newIdx === state.activeTab) return;
 
     // Hide current tab content
