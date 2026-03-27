@@ -1,6 +1,6 @@
-# log-viewer — browser UI
+# embed-log — browser UI
 
-Live two-pane serial log viewer served by the log-viewer server over HTTP and WebSocket.
+Live two-pane serial log viewer served by the embed-log server over HTTP and WebSocket.
 
 ---
 
@@ -117,7 +117,7 @@ Wires up all toolbar buttons and interactive controls to `state` and DOM:
 On **Export** click:
 1. Reads all current CSS variable values from the live document via `getComputedStyle` — the exported file always matches the active theme.
 2. Renders both panes (`state.rawLines`) into a self-contained HTML string with inline `<style>`.
-3. Triggers a browser download as `log-viewer-<ISO-timestamp>.html`.
+3. Triggers a browser download as `embed-log-<ISO-timestamp>.html`.
 
 No server round-trip; the export is entirely client-side.
 

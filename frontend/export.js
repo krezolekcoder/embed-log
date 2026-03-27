@@ -152,7 +152,7 @@ async function exportToHtml() {
 <html lang="en"${themeAttr}>
 <head>
 <meta charset="UTF-8">
-<title>log-viewer \u2014 ${title}</title>
+<title>embed-log \u2014 ${title}</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
 <style>${css}</style>
@@ -161,7 +161,7 @@ async function exportToHtml() {
 <body>
 
 <div id="toolbar">
-    <span class="app-name">log-viewer</span>
+    <span class="app-name">embed-log</span>
     <button id="btn-wrap"     title="Toggle word wrap">Wrap</button>
     <button id="btn-ts"       title="Toggle timestamps" class="active">Time</button>
     <button id="btn-sync"     title="Click a line to sync the other pane to the same timestamp" class="active">Sync</button>
@@ -203,7 +203,7 @@ ${tabContentsHtml}
         const url  = URL.createObjectURL(blob);
         const a    = document.createElement("a");
         a.href     = url;
-        a.download = `log-viewer-${ts}.html`;
+        a.download = `embed-log-${ts}.html`;
         a.click();
         URL.revokeObjectURL(url);
 

@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-merge_logs.py — offline log viewer for log-viewer .log files.
+merge_logs.py — offline log viewer for embed-log .log files.
 
-Generates a self-contained static HTML file using the log-viewer UI:
+Generates a self-contained static HTML file using the embed-log UI:
 same themes, pane sync (including cross-tab), ANSI rendering, regex filter,
 and HTML export. No server or browser extension required.
 
@@ -313,7 +313,7 @@ def generate_html(tab_specs: list) -> str:
 <html lang="en" data-theme="whitesand">
 <head>
 <meta charset="UTF-8">
-<title>log-viewer — {title}</title>
+<title>embed-log — {title}</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
 <style>{css}</style>
@@ -322,7 +322,7 @@ def generate_html(tab_specs: list) -> str:
 
 <!-- ── TOOLBAR ──────────────────────────────────────────────── -->
 <div id="toolbar">
-    <span class="app-name">log-viewer</span>
+    <span class="app-name">embed-log</span>
     <button id="btn-wrap"     title="Toggle word wrap">Wrap</button>
     <button id="btn-ts"       title="Toggle timestamps" class="active">Time</button>
     <button id="btn-sync"     title="Click a line to sync the other pane to the same timestamp" class="active">Sync</button>

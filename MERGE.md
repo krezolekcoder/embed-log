@@ -1,7 +1,7 @@
 # merge_logs.py — offline log viewer
 
 Generates a self-contained static HTML file from one or more `.log` files
-produced by the log-viewer server. The output can be opened directly in any
+produced by the embed-log server. The output can be opened directly in any
 browser — no server, no dependencies, no build step.
 
 The viewer is identical to the live browser UI: same themes, ANSI colour

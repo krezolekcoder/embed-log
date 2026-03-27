@@ -1,4 +1,4 @@
-# log-viewer
+# embed-log
 
 Serial log server for embedded device CI. Reads UART output from one or more devices, writes it to timestamped log files, exposes a TCP socket per device so that test code (pytest, Robot Framework) can inject markers and send serial TX commands, and streams everything live to a browser UI over WebSocket.
 
@@ -7,7 +7,7 @@ Serial log server for embedded device CI. Reads UART output from one or more dev
 ## Project structure
 
 ```
-log-viewer/
+embed-log/
 ├── README.md          this file
 ├── FRONTEND.md        browser UI architecture
 ├── MERGE.md           offline log merging with merge_logs.py
@@ -31,7 +31,7 @@ log-viewer/
 
 ## Problem it solves
 
-When running tests against embedded hardware it is hard to correlate what the test did with what the device logged. log-viewer merges both streams into one ordered log file and one live browser view:
+When running tests against embedded hardware it is hard to correlate what the test did with what the device logged. embed-log merges both streams into one ordered log file and one live browser view:
 
 ```
 [2026-03-25T11:49:50.100+01:00] boot complete, heap free: 62832
@@ -348,7 +348,7 @@ echo '{"type":"tx","source":"manual","data":"reboot\r\n"}' \
 ```yaml
 # .gitlab-ci.yml / GitHub Actions
 
-- name: Start log-viewer
+- name: Start embed-log
   run: |
     python3 backend/server.py \
       --source READER     uart:/dev/ttyFTDI_A \
@@ -358,14 +358,14 @@ echo '{"type":"tx","source":"manual","data":"reboot\r\n"}' \
       --tab "Devices" READER CONTROLLER \
       --log-dir $CI_PROJECT_DIR/logs/ \
       --ws-port 8080 &
-    echo $! > /tmp/log-viewer.pid
+    echo $! > /tmp/embed-log.pid
 
 - name: Run tests
   run: pytest tests/ -v
 
-- name: Stop log-viewer
+- name: Stop embed-log
   if: always()
-  run: kill $(cat /tmp/log-viewer.pid) || true
+  run: kill $(cat /tmp/embed-log.pid) || true
 ```
 
 ---

@@ -1,5 +1,5 @@
 """
-log-viewer — log aggregator with WebSocket UI and TCP inject port.
+embed-log — log aggregator with WebSocket UI and TCP inject port.
 
 Usage:
     python3 server.py
@@ -613,7 +613,7 @@ def _parse_source(name: str, spec: str, default_baudrate: int) -> LogSource:
 
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        description="log-viewer — log aggregator with WebSocket UI and TCP inject port.",
+        description="embed-log — log aggregator with WebSocket UI and TCP inject port.",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
         epilog=(
             "Example:\n"
