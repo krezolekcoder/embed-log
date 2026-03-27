@@ -379,3 +379,51 @@ tail -f logs/CONTROLLER.log
 # Both at once (requires multitail)
 multitail logs/READER.log logs/CONTROLLER.log
 ```
+
+---
+
+## Testing without serial hardware (UDP simulator)
+
+You can simulate log traffic into one or more `udp:PORT` sources using:
+
+```bash
+python3 utils/udp_log_simulator.py --help
+```
+
+### Example: two simulated devices
+
+Start the server:
+
+```bash
+python3 backend/server.py \
+  --source SENSOR_A udp:6000 \
+  --source SENSOR_B udp:6001 \
+  --tab "Simulated" SENSOR_A SENSOR_B \
+  --ws-port 8080
+```
+
+In another terminal, start the simulator:
+
+```bash
+python3 utils/udp_log_simulator.py \
+  --target 127.0.0.1:6000 \
+  --target 127.0.0.1:6001 \
+  --interval-min 0.05 \
+  --interval-max 0.30
+```
+
+Each emitted line uses a local system timestamp and a random message selected
+from `utils/sim_messages.txt` (severity tags: `<inf> <wrn> <dbg> <err>`).
+
+### Handy CLI patterns
+
+```bash
+# Use shared host + multiple ports
+python3 utils/udp_log_simulator.py --host 127.0.0.1 --port 6000 --port 6001
+
+# Deterministic run (reproducible random sequence), finite number of lines
+python3 utils/udp_log_simulator.py --target 127.0.0.1:6000 --count 200 --seed 42
+
+# Custom message corpus
+python3 utils/udp_log_simulator.py --target 127.0.0.1:6000 --messages ./my-messages.txt
+```
