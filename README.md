@@ -21,10 +21,12 @@ embed-log/
 ├── backend/           server and client library
 │   ├── server.py      log server (serial + TCP + WebSocket)
 │   ├── log_client.py  Python client for pytest / Robot Framework
-│   └── demo.py        example client usage
 │
 └── utils/
-    └── merge_logs.py  offline HTML viewer generator
+    ├── merge_logs.py        offline HTML viewer generator
+    ├── udp_log_simulator.py UDP traffic simulator for udp:PORT sources
+    ├── sim_messages.txt     message corpus for simulator
+    └── inject_log_demo.py   inject-port marker + TX demo client
 ```
 
 ---
@@ -81,7 +83,7 @@ When running tests against embedded hardware it is hard to correlate what the te
   ┌─────┴──────┐                ┌──────┴─────┐
   │  pytest /  │                │  pytest /  │
   │  robot /   │                │  robot /   │
-  │  demo.py   │                │  demo.py   │
+  │ inject_log_demo.py │         │ inject_log_demo.py │
   └────────────┘                └────────────┘
                           ▲
                           │  WebSocket (ws://:8080/ws)
@@ -426,4 +428,30 @@ python3 utils/udp_log_simulator.py --target 127.0.0.1:6000 --count 200 --seed 42
 
 # Custom message corpus
 python3 utils/udp_log_simulator.py --target 127.0.0.1:6000 --messages ./my-messages.txt
+```
+
+---
+
+## Inject demo utility (CLI aligned with server)
+
+`utils/inject_log_demo.py` accepts repeated `--inject NAME PORT`, matching the
+server CLI shape and source names.
+
+```bash
+# Server
+python3 backend/server.py \
+  --source READER     udp:6000 \
+  --source CONTROLLER udp:6001 \
+  --inject READER     5001 \
+  --inject CONTROLLER 5002 \
+  --tab "Simulated Devices" READER CONTROLLER \
+  --ws-port 8080
+
+# Inject marker + TX traffic to both sources
+python3 utils/inject_log_demo.py \
+  --inject READER 5001 \
+  --inject CONTROLLER 5002 \
+  --interval 5 \
+  --command "heap stat" \
+  --source demo
 ```
