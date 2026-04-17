@@ -5,11 +5,13 @@ import { switchTab } from './tabs.js';
 
 const STORAGE_KEY_PREFIX = 'embed-log:session:';
 const STORAGE_KEY_SUFFIX = ':v1';
+const LAST_SESSION_KEY = 'embed-log:last-session-id';
 const MAX_LINES_PER_PANE = 1500;
 const SAVE_DEBOUNCE_MS = 500;
 
 let _storageKey = `${STORAGE_KEY_PREFIX}default${STORAGE_KEY_SUFFIX}`;
 let _hasSessionInfo = false;
+let _currentSessionId = null;
 let _restoreDone = false;
 let _restoring = false;
 let _saveTimer = null;
@@ -106,8 +108,29 @@ window.__embedLogSchedulePersist = function __embedLogSchedulePersist() {
 window.__embedLogSetSession = function __embedLogSetSession(session) {
     _hasSessionInfo = true;
     const sessionId = session && session.id ? String(session.id) : 'default';
+
+    // Persisted comparison across page reloads/browser reopen.
+    let lastSessionId = null;
+    try { lastSessionId = localStorage.getItem(LAST_SESSION_KEY); } catch {}
+
+    if ((lastSessionId && lastSessionId !== sessionId) || (_currentSessionId && _currentSessionId !== sessionId)) {
+        // Policy: new backend session means fresh UI cache.
+        try {
+            const keys = [];
+            for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                if (key && key.startsWith(STORAGE_KEY_PREFIX)) keys.push(key);
+            }
+            keys.forEach(key => localStorage.removeItem(key));
+            localStorage.removeItem('embed-log:session:v1'); // legacy key
+        } catch {}
+    }
+
+    _currentSessionId = sessionId;
     _storageKey = `${STORAGE_KEY_PREFIX}${sessionId}${STORAGE_KEY_SUFFIX}`;
     _restoreDone = false;
+
+    try { localStorage.setItem(LAST_SESSION_KEY, sessionId); } catch {}
 };
 
 window.__embedLogAfterConfig = function __embedLogAfterConfig() {
@@ -124,12 +147,10 @@ window.__embedLogClearCache = function __embedLogClearCache() {
         }
         keys.forEach(key => localStorage.removeItem(key));
         localStorage.removeItem('embed-log:session:v1'); // legacy key
+        localStorage.removeItem(LAST_SESSION_KEY);
     } catch {}
 };
 
-// If WS is disabled/unreachable, still try to restore after initial load.
-setTimeout(() => {
-    if (!_hasSessionInfo) _restoreIfPossible();
-}, 300);
+// Note: restore is intentionally session-bound and starts after WS config.
 
 window.addEventListener('beforeunload', _saveNow);

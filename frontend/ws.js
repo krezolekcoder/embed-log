@@ -1,5 +1,5 @@
 import { state, TABS, PANES } from './state.js';
-import { appendLine } from './lines.js';
+import { appendLine, clearPane } from './lines.js';
 import { createTabWithPanes, createDynamicTab } from './tabcreate.js';
 import { switchTab } from './tabs.js';
 
@@ -7,6 +7,23 @@ let ws = null;
 let wsRetryDelay = 1000;
 const WS_MAX_DELAY = 16000;
 const wsStatus = document.getElementById("ws-status");
+let currentSessionId = null;
+
+function resetLayoutForNewSession() {
+    const container = document.getElementById("container");
+    if (container) container.innerHTML = "";
+
+    TABS.length = 0;
+    PANES.length = 0;
+
+    state.activeTab = 0;
+    state.syncTs = null;
+    state.filters = {};
+    state.rawLines = {};
+    state.atBottom = {};
+    state.highlighted = {};
+    state.selected = {};
+}
 
 function wsSetStatus(cls, text) {
     wsStatus.className    = cls;
@@ -23,11 +40,21 @@ export function wsSend(obj) {
 // In static exports this is stubbed to a no-op by the bootstrap script.
 window.wsSend = wsSend;
 
+function clearAllPaneContents() {
+    PANES.forEach(paneId => {
+        const logEl = document.getElementById("log-" + paneId);
+        if (!logEl) return;
+        clearPane(paneId);
+    });
+}
+
 function wsConnect() {
     wsSetStatus("connecting", "connecting…");
     ws = new WebSocket("ws://" + window.location.host + "/ws");
 
     ws.addEventListener("open", () => {
+        // UX policy: never show stale in-memory lines after reconnect/open.
+        clearAllPaneContents();
         wsSetStatus("connected", "connected");
         wsRetryDelay = 1000;
     });
@@ -39,8 +66,14 @@ function wsConnect() {
         // Config message — server tells us the tab/pane layout upfront.
         // Create all tabs before any log data arrives.
         if (msg.type === "config") {
+            const sessionId = msg.session?.id || null;
+            const isSessionChange = currentSessionId && sessionId && currentSessionId !== sessionId;
+            if (isSessionChange) {
+                resetLayoutForNewSession();
+            }
+            currentSessionId = sessionId || currentSessionId;
+
             window.__embedLogSetSession?.(msg.session || null);
-            // If tabs already exist (e.g. restored from local cache), keep them.
             if (TABS.length === 0 && msg.tabs && msg.tabs.length > 0) {
                 msg.tabs.forEach(tab =>
                     createTabWithPanes(tab.label, tab.panes, { switchTo: false })

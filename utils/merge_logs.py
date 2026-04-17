@@ -66,6 +66,10 @@ def _ms3(frac: str | None) -> str:
     return (frac + "000")[:3]
 
 
+# ANSI prefix (e.g. \x1b[36m) can appear before timestamp when the whole
+# line was colorised by the backend formatter.
+_RE_ANSI_PREFIX = re.compile(r'^(?:\x1b\[[0-9;]*m)+')
+
 # [YYYY-MM-DDTHH:MM:SS[.frac][Z|±HH:MM]]
 _RE_FULL_ISO_BRACKET = re.compile(
     r"^\[(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:[.,](\d+))?(?:Z|[+-]\d{2}:\d{2})?\]\s*(.*)",
@@ -97,7 +101,13 @@ def _parse_line(raw: str):
     """
     Try all supported timestamp formats on a raw log line.
     Returns (ts, text) where ts is "MM-DD HH:MM:SS.mmm", or None if no match.
+
+    Important: some backend lines are wrapped with ANSI color escapes, e.g.
+    "\x1b[36m[2026-... ] ... \x1b[0m". We strip only the ANSI *prefix* for
+    timestamp detection, keeping the rest of the line intact.
     """
+    raw = _RE_ANSI_PREFIX.sub("", raw)
+
     m = _RE_FULL_ISO_BRACKET.match(raw)
     if m:
         return (f"{m[2]}-{m[3]} {m[4]}:{m[5]}:{m[6]}.{_ms3(m[7])}", m[8])
@@ -128,6 +138,9 @@ def parse_log_file(path: str) -> list:
 
     Continuation lines (no timestamp) are appended to the preceding entry
     so multi-line stack traces stay together.
+
+    Note: we keep the ORIGINAL line text (including embedded/full timestamps)
+    and only extract a normalised `ts` value for UI sorting/sync.
     """
     entries = []
     pending_ts: str | None = None
@@ -137,7 +150,7 @@ def parse_log_file(path: str) -> list:
         nonlocal pending_ts, pending_text
         if pending_ts is None:
             return
-        is_tx = pending_text.startswith("[TX::")
+        is_tx = "[TX::" in pending_text
         entries.append({"ts": pending_ts, "text": pending_text, "isTx": is_tx})
         pending_ts = pending_text = None
 
@@ -148,7 +161,8 @@ def parse_log_file(path: str) -> list:
                 parsed = _parse_line(raw)
                 if parsed:
                     _flush()
-                    pending_ts, pending_text = parsed
+                    pending_ts = parsed[0]
+                    pending_text = raw
                 elif pending_ts is not None and raw.strip():
                     # Continuation line — append to current entry
                     pending_text += " " + raw.strip()

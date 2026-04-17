@@ -947,8 +947,14 @@ def main(argv: Optional[list[str]] = None) -> int:
         for pane in tab["panes"]:
             tab_label_by_source[pane] = tab["label"]
 
-    session_id = datetime.now().astimezone().strftime("%Y-%m-%d_%H-%M-%S")
+    base_session_id = datetime.now().astimezone().strftime("%Y-%m-%d_%H-%M-%S_%f")[:-3]
+    session_id = base_session_id
     session_dir = logs_root / session_id
+    i = 1
+    while session_dir.exists():
+        session_id = f"{base_session_id}_{i}"
+        session_dir = logs_root / session_id
+        i += 1
     session_dir.mkdir(parents=True, exist_ok=True)
 
     sources = []

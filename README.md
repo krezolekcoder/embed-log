@@ -18,7 +18,6 @@ Serial log server for embedded device CI. Reads UART output from one or more dev
 
 ### Good next backend improvements (possible)
 - **Backpressure/retention controls** (bounded queues, drop counters, source health stats).
-- **Session persistence API** (save/restore run metadata server-side, not only browser cache).
 - **Operational endpoints** (`/health`, `/metrics`, `/stats`) for CI monitoring.
 - **Auth/network hardening** for non-local deployments (token, stricter bind model).
 - **Replay/search APIs** (server-side history window, regex search across buffered logs).
@@ -90,7 +89,7 @@ When running tests against embedded hardware it is hard to correlate what the te
 │  │    SourceManager A      │    │    SourceManager B      │         │
 │  │    name = "READER"      │    │    name = "CONTROLLER"  │         │
 │  │                         │    │                         │         │
-│  │  LogSource (uart/file/  │    │  LogSource (uart/file/  │         │
+│  │  LogSource (uart/udp)   │    │  LogSource (uart/udp)   │         │
 │  │  udp) reader thread     │    │  udp) reader thread     │         │
 │  │                         │    │                         │         │
 │  │  inject server thread   │    │  inject server thread   │         │
@@ -99,7 +98,7 @@ When running tests against embedded hardware it is hard to correlate what the te
 │  │        queue            │    │        queue            │         │
 │  │          │              │    │          │              │         │
 │  │  writer thread          │    │  writer thread          │         │
-│  │  → logs/READER.log      │    │  → logs/CONTROLLER.log  │         │
+│  │  → logs/<session>/...   │    │  → logs/<session>/...   │         │
 │  └──────────┬──────────────┘    └──────────┬──────────────┘         │
 │             │                              │                         │
 │             └──────────────┬───────────────┘                         │
@@ -138,6 +137,11 @@ When running tests against embedded hardware it is hard to correlate what the te
 
 See [FRONTEND.md](FRONTEND.md) for the browser UI architecture.
 See [MERGE.md](MERGE.md) for offline log merging with `merge_logs.py`.
+
+Session-related HTTP endpoints:
+- `GET /api/session/current` — current session metadata and URLs
+- `GET /api/sessions` — list available sessions
+- `GET /sessions/<session_id>/<filename>` — open `session.html`, `manifest.json`, or raw logs
 
 ---
 
@@ -254,13 +258,19 @@ tabs:
 
 ### Browser UI
 
-When `--ws-port` is set:
+When `--ws-port` is set (example):
 
 ```
 http://127.0.0.1:8080/
 ```
 
-The UI streams both device panes live, supports per-pane filtering, cross-pane timestamp sync, and HTML export. It also includes a **Sessions** popup in the toolbar to open saved session HTML files directly. See [FRONTEND.md](FRONTEND.md).
+`run_demo.sh` prefers 8080 but may auto-select another free port in `8081..8099`.
+
+The UI streams both device panes live, supports per-pane filtering, cross-pane timestamp sync, and HTML export. It also includes:
+- **Current HTML** toolbar button (open current session export)
+- **Sessions** popup (browse/open saved session HTML files and manifests)
+
+See [FRONTEND.md](FRONTEND.md).
 
 ---
 

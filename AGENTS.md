@@ -10,12 +10,15 @@ Quick onboarding notes for future coding agents and humans working in `embed-log
 
 1. **Source readers** (`uart`, `udp`) feed lines into per-source queues.
 2. **SourceManager writer thread** serializes output order and writes to:
-   - stdout
-   - `logs/<SOURCE>.log`
+   - stdout (only in verbose mode)
+   - per-session raw log files in `logs/<session_id>/`
    - WebSocket payloads (if UI enabled)
    - inject-port stream clients
 3. **WebSocketBroadcaster** serves UI and pushes `rx`/`tx` events.
-4. **Frontend** renders tabs/panes, filters, settings, export/import, selection, splitters, and cached refresh restore.
+4. **Session artifacts** are generated in each session directory:
+   - `manifest.json`
+   - `session.html` (auto-export on last WS disconnect and on SIGINT/SIGTERM)
+5. **Frontend** renders tabs/panes, filters, settings, export/import, selection, splitters, refresh cache, and sessions popup.
 
 ## Run locally (recommended)
 
@@ -27,7 +30,7 @@ python3 backend/server.py run --config examples/embed-log.yml
 # or: ./run_demo.sh
 ```
 
-UI: `http://127.0.0.1:8080/`
+UI: usually `http://127.0.0.1:8080/` (demo script may auto-fallback to another free 808x port).
 
 ## Key code locations
 
@@ -45,6 +48,10 @@ UI: `http://127.0.0.1:8080/`
 - Pane swap UI via hover popup on tab labels.
 - Visual swap pulse animation.
 - Local refresh cache of logs/layout (with toolbar "Clear cache" action).
+- Session-aware cache keys (cache scoped by backend session id).
+- Toolbar sessions UX:
+  - `Current HTML` button (open current session export)
+  - `Sessions` popup (browse/open saved sessions and manifests)
 
 ## Change guidelines
 
@@ -52,7 +59,12 @@ UI: `http://127.0.0.1:8080/`
 - Prefer minimal, targeted edits over rewrites.
 - Preserve protocol compatibility:
   - WS sends `config` first, then log events.
+  - `config` now includes `session` metadata.
   - Inject sockets accept newline-delimited JSON.
+- Keep session APIs stable unless intentionally versioned:
+  - `GET /api/session/current`
+  - `GET /api/sessions`
+  - `GET /sessions/<session_id>/<filename>`
 - Any new backend capability should be easy to drive from both:
   - direct Python clients (`log_client`, `tx_client`)
   - browser WebSocket path.
