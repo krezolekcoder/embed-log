@@ -165,7 +165,7 @@ function _buildSwapTargetOptions(select, fromPaneId) {
 
     function scheduleHide() {
         clearTimeout(hideTimer);
-        hideTimer = setTimeout(hideMenu, 150);
+        hideTimer = setTimeout(hideMenu, 40);
     }
 
     function cancelHide() {
