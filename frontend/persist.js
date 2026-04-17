@@ -3,10 +3,13 @@ import { appendLine, updateJumpBtn } from './lines.js';
 import { createTabWithPanes } from './tabcreate.js';
 import { switchTab } from './tabs.js';
 
-const STORAGE_KEY = 'embed-log:session:v1';
+const STORAGE_KEY_PREFIX = 'embed-log:session:';
+const STORAGE_KEY_SUFFIX = ':v1';
 const MAX_LINES_PER_PANE = 1500;
 const SAVE_DEBOUNCE_MS = 500;
 
+let _storageKey = `${STORAGE_KEY_PREFIX}default${STORAGE_KEY_SUFFIX}`;
+let _hasSessionInfo = false;
 let _restoreDone = false;
 let _restoring = false;
 let _saveTimer = null;
@@ -38,7 +41,7 @@ function _snapshot() {
 function _saveNow() {
     if (_restoring) return;
     try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(_snapshot()));
+        localStorage.setItem(_storageKey, JSON.stringify(_snapshot()));
     } catch {
         // Ignore quota / private mode errors.
     }
@@ -47,7 +50,7 @@ function _saveNow() {
 function _restoreIfPossible() {
     if (_restoreDone) return;
 
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = localStorage.getItem(_storageKey);
     if (!raw) {
         _restoreDone = true;
         return;
@@ -100,16 +103,33 @@ window.__embedLogSchedulePersist = function __embedLogSchedulePersist() {
     _saveTimer = setTimeout(_saveNow, SAVE_DEBOUNCE_MS);
 };
 
+window.__embedLogSetSession = function __embedLogSetSession(session) {
+    _hasSessionInfo = true;
+    const sessionId = session && session.id ? String(session.id) : 'default';
+    _storageKey = `${STORAGE_KEY_PREFIX}${sessionId}${STORAGE_KEY_SUFFIX}`;
+    _restoreDone = false;
+};
+
 window.__embedLogAfterConfig = function __embedLogAfterConfig() {
     _restoreIfPossible();
 };
 
 window.__embedLogClearCache = function __embedLogClearCache() {
     clearTimeout(_saveTimer);
-    try { localStorage.removeItem(STORAGE_KEY); } catch {}
+    try {
+        const keys = [];
+        for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i);
+            if (key && key.startsWith(STORAGE_KEY_PREFIX)) keys.push(key);
+        }
+        keys.forEach(key => localStorage.removeItem(key));
+        localStorage.removeItem('embed-log:session:v1'); // legacy key
+    } catch {}
 };
 
 // If WS is disabled/unreachable, still try to restore after initial load.
-setTimeout(_restoreIfPossible, 300);
+setTimeout(() => {
+    if (!_hasSessionInfo) _restoreIfPossible();
+}, 300);
 
 window.addEventListener('beforeunload', _saveNow);

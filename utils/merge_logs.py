@@ -185,7 +185,7 @@ def _strip_module_syntax(src: str) -> str:
     # Remove export keyword from declarations (function, class, const, let, var)
     src = re.sub(r"^export\s+(async\s+)?(function|class|const|let|var)\b", r"\2", src, flags=re.MULTILINE)
     # Remove standalone export { ... } statements
-    src = re.sub(r"^export\s*\{[^}]*\}\s*(?:from\s*['\"][^'\"]*['"])?\s*;?\r?\n?", "", src, flags=re.MULTILINE)
+    src = re.sub(r"^export\s*\{[^}]*\}\s*(?:from\s*['\"][^'\"]*['\"])?\s*;?\r?\n?", "", src, flags=re.MULTILINE)
     return src
 
 

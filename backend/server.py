@@ -20,6 +20,7 @@ import re
 import select
 import signal
 import socket
+import subprocess
 import sys
 import threading
 from abc import ABC, abstractmethod
@@ -31,10 +32,25 @@ import aiohttp
 from aiohttp import web
 import serial
 
+_config_import_error: Optional[Exception] = None
 try:
     from .config import ConfigError, load_config
-except ImportError:
-    from config import ConfigError, load_config
+except Exception as exc1:
+    try:
+        from backend.config import ConfigError, load_config
+    except Exception:
+        try:
+            from config import ConfigError, load_config
+        except Exception as exc3:
+            _config_import_error = exc3
+
+            class ConfigError(ValueError):
+                pass
+
+            def load_config(path):
+                raise ConfigError(
+                    "YAML config support unavailable. Install dependencies with: pip install -r requirements.txt"
+                ) from _config_import_error
 
 # ---------------------------------------------------------------------------
 # ANSI colors available to clients
@@ -50,6 +66,10 @@ ANSI = {
     "bold":    "\033[1m",
     "reset":   "\033[0m",
 }
+
+
+def _slug(value: str) -> str:
+    return re.sub(r"[^a-zA-Z0-9]+", "-", value).strip("-") or "x"
 
 
 class LogEntry:
@@ -171,7 +191,16 @@ class WebSocketBroadcaster:
     knows the tab/pane layout upfront.
     """
 
-    def __init__(self, html_path: str, host: str, port: int, tabs: list):
+    def __init__(
+        self,
+        html_path: str,
+        host: str,
+        port: int,
+        tabs: list,
+        session_info: Optional[dict] = None,
+        sessions_root: Optional[str] = None,
+        on_all_clients_disconnected: Optional[Callable[[], None]] = None,
+    ):
         self._html_path = Path(html_path)
         self._host = host
         self._port = port
@@ -179,9 +208,16 @@ class WebSocketBroadcaster:
         self._loop: Optional[asyncio.AbstractEventLoop] = None
         self._clients: set = set()
         self._source_map: dict = {}   # name → SourceManager
+        self._session_info = session_info or {}
+        self._sessions_root = Path(sessions_root) if sessions_root else None
+        self._on_all_clients_disconnected = on_all_clients_disconnected
+        self._no_clients_handle = None
 
     def register_source(self, name: str, mgr) -> None:
         self._source_map[name] = mgr
+
+    def update_session_info(self, updates: dict) -> None:
+        self._session_info.update(updates)
 
     def broadcast(self, msg: dict) -> None:
         if self._loop and not self._loop.is_closed() and self._clients:
@@ -210,6 +246,9 @@ class WebSocketBroadcaster:
     async def _serve(self) -> None:
         app = web.Application()
         app.router.add_get("/ws", self._ws_handler)
+        app.router.add_get("/api/session/current", self._session_current_handler)
+        app.router.add_get("/api/sessions", self._sessions_list_handler)
+        app.router.add_get("/sessions/{session_id}/{filename}", self._session_file_handler)
         app.router.add_get("/", self._index_handler)
         app.router.add_get("/{filename}", self._static_handler)
         runner = web.AppRunner(app)
@@ -234,6 +273,55 @@ class WebSocketBroadcaster:
             raise web.HTTPNotFound()
         return web.FileResponse(path)
 
+    async def _session_current_handler(self, request: web.Request) -> web.Response:
+        return web.json_response(self._session_info)
+
+    async def _sessions_list_handler(self, request: web.Request) -> web.Response:
+        if self._sessions_root is None or not self._sessions_root.is_dir():
+            return web.json_response({"sessions": [], "current": self._session_info.get("id")})
+
+        current = self._session_info.get("id")
+        sessions = []
+        for child in sorted(self._sessions_root.iterdir(), reverse=True):
+            if not child.is_dir():
+                continue
+            session_id = child.name
+            manifest_path = child / "manifest.json"
+            html_path = child / "session.html"
+
+            started_at = None
+            tabs = []
+            if manifest_path.is_file():
+                try:
+                    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+                    started_at = manifest.get("started_at")
+                    tabs = manifest.get("tabs") or []
+                except Exception:
+                    pass
+
+            sessions.append({
+                "id": session_id,
+                "started_at": started_at,
+                "html_ready": html_path.is_file(),
+                "html": f"/sessions/{session_id}/session.html",
+                "manifest": f"/sessions/{session_id}/manifest.json",
+                "tabs": tabs,
+            })
+
+        return web.json_response({"sessions": sessions, "current": current})
+
+    async def _session_file_handler(self, request: web.Request) -> web.Response:
+        if self._sessions_root is None:
+            raise web.HTTPNotFound()
+        session_id = request.match_info["session_id"]
+        filename = request.match_info["filename"]
+        if any(x in session_id for x in ["..", "/"]) or any(x in filename for x in ["..", "/"]):
+            raise web.HTTPForbidden()
+        path = self._sessions_root / session_id / filename
+        if not path.is_file():
+            raise web.HTTPNotFound()
+        return web.FileResponse(path)
+
     async def _ws_handler(self, request: web.Request) -> web.WebSocketResponse:
         ws = web.WebSocketResponse()
         await ws.prepare(request)
@@ -242,8 +330,15 @@ class WebSocketBroadcaster:
         # Send tab layout BEFORE adding to the broadcast set so that the config
         # message is always the first thing the browser receives — no log entries
         # can arrive before it and trigger premature dynamic tab creation.
-        await ws.send_str(json.dumps({"type": "config", "tabs": self._tabs}))
+        await ws.send_str(json.dumps({
+            "type": "config",
+            "tabs": self._tabs,
+            "session": self._session_info,
+        }))
         self._clients.add(ws)
+        if self._no_clients_handle is not None:
+            self._no_clients_handle.cancel()
+            self._no_clients_handle = None
 
         try:
             async for msg in ws:
@@ -256,8 +351,23 @@ class WebSocketBroadcaster:
                     logging.debug("WS error: %s", ws.exception())
         finally:
             self._clients.discard(ws)
+            if not self._clients:
+                self._schedule_no_clients_callback()
             logging.info("WS client disconnected: %s", request.remote)
         return ws
+
+    def _schedule_no_clients_callback(self) -> None:
+        if self._on_all_clients_disconnected is None or self._loop is None:
+            return
+        if self._no_clients_handle is not None:
+            self._no_clients_handle.cancel()
+        self._no_clients_handle = self._loop.call_later(1.0, self._fire_no_clients_callback)
+
+    def _fire_no_clients_callback(self) -> None:
+        self._no_clients_handle = None
+        if self._on_all_clients_disconnected is None or self._clients:
+            return
+        threading.Thread(target=self._on_all_clients_disconnected, daemon=True).start()
 
     async def _handle_command(self, msg: dict) -> None:
         if msg.get("cmd") != "send_raw":
@@ -306,11 +416,16 @@ class SourceManager:
         self._stop = threading.Event()
         self._stream_clients: list = []
         self._clients_lock = threading.Lock()
+        self._writer_thread: Optional[threading.Thread] = None
 
     def start(self) -> None:
         self.log_file.parent.mkdir(parents=True, exist_ok=True)
-        threading.Thread(target=self._writer_loop, daemon=True,
-                         name=f"{self.name}-writer").start()
+        self._writer_thread = threading.Thread(
+            target=self._writer_loop,
+            daemon=True,
+            name=f"{self.name}-writer",
+        )
+        self._writer_thread.start()
         self.source.start(self._on_source_line, self._stop, self.name)
         if self.inject_port:
             threading.Thread(target=self._inject_loop, daemon=True,
@@ -326,6 +441,8 @@ class SourceManager:
     def stop(self) -> None:
         self._stop.set()
         self._queue.put(None)
+        if self._writer_thread and self._writer_thread.is_alive():
+            self._writer_thread.join(timeout=2.0)
 
     def _on_source_line(self, message: str) -> None:
         self._queue.put(LogEntry(datetime.now().astimezone(), "SERIAL", message))
@@ -503,14 +620,51 @@ class LogServer:
         self,
         sources: list,
         tabs: list,
+        session_id: str,
+        session_dir: str,
+        logs_root: str,
         host: str = "127.0.0.1",
         verbose: bool = False,
         ws_port: int = 0,
         ws_ui: str = "frontend/index.html",
+        config_path: Optional[str] = None,
     ):
+        self._tabs = tabs
+        self._session_id = session_id
+        self._started_at = datetime.now().astimezone().isoformat(timespec="seconds")
+        self._session_dir = Path(session_dir)
+        self._logs_root = Path(logs_root)
+        self._manifest_path = self._session_dir / "manifest.json"
+        self._html_path = self._session_dir / "session.html"
+        self._config_path = config_path
+        self._export_lock = threading.Lock()
+
+        self._source_files = {s["name"]: str(s["log_file"]) for s in sources}
+        self._session_info = {
+            "id": self._session_id,
+            "dir": str(self._session_dir),
+            "manifest": f"/sessions/{self._session_id}/manifest.json",
+            "html": f"/sessions/{self._session_id}/session.html",
+            "html_ready": False,
+            "api": "/api/session/current",
+            "tabs": self._tabs,
+            "sources": [
+                {"name": name, "log": f"/sessions/{self._session_id}/{Path(path).name}"}
+                for name, path in self._source_files.items()
+            ],
+        }
+
         broadcaster: Optional[WebSocketBroadcaster] = None
         if ws_port:
-            broadcaster = WebSocketBroadcaster(ws_ui, host, ws_port, tabs)
+            broadcaster = WebSocketBroadcaster(
+                ws_ui,
+                host,
+                ws_port,
+                tabs,
+                session_info=dict(self._session_info),
+                sessions_root=str(self._logs_root),
+                on_all_clients_disconnected=lambda: self.export_session_html("last_ws_disconnect"),
+            )
 
         self._broadcaster = broadcaster
         self._managers = [
@@ -530,6 +684,55 @@ class LogServer:
             for mgr in self._managers:
                 broadcaster.register_source(mgr.name, mgr)
 
+        self._write_manifest(reason="start")
+
+    def _write_manifest(self, *, reason: str, exported_html: bool = False) -> None:
+        manifest = {
+            "session_id": self._session_id,
+            "session_dir": str(self._session_dir),
+            "started_at": self._started_at,
+            "config_path": self._config_path,
+            "tabs": self._tabs,
+            "source_files": self._source_files,
+            "session_html": str(self._html_path) if exported_html else None,
+            "last_export_reason": reason if exported_html else None,
+        }
+        self._manifest_path.write_text(json.dumps(manifest, indent=2), encoding="utf-8")
+
+    def export_session_html(self, reason: str) -> None:
+        with self._export_lock:
+            script = Path(__file__).resolve().parents[1] / "utils" / "merge_logs.py"
+            if not script.is_file():
+                return
+
+            tabs_for_export = self._tabs or [
+                {"label": name, "panes": [name]} for name in self._source_files.keys()
+            ]
+
+            cmd = [sys.executable, str(script)]
+            for tab in tabs_for_export:
+                cmd.extend(["--tab", tab["label"]])
+                for pane in tab.get("panes", []):
+                    file_path = self._source_files.get(pane)
+                    if not file_path:
+                        continue
+                    cmd.extend([pane, file_path])
+            cmd.extend(["--output", str(self._html_path)])
+
+            try:
+                proc = subprocess.run(cmd, capture_output=True, text=True)
+                if proc.returncode != 0:
+                    logging.warning("session export failed (%s): %s", reason, proc.stderr.strip())
+                    return
+            except Exception as exc:
+                logging.warning("session export failed (%s): %s", reason, exc)
+                return
+
+            self._write_manifest(reason=reason, exported_html=True)
+            self._session_info["html_ready"] = True
+            if self._broadcaster:
+                self._broadcaster.update_session_info({"html_ready": True})
+
     def start(self) -> None:
         if self._broadcaster:
             self._broadcaster.start()
@@ -547,6 +750,7 @@ class LogServer:
         def _handler(sig, frame):
             logging.info("shutting down…")
             self.stop()
+            self.export_session_html("signal")
             stop_event.set()
 
         signal.signal(signal.SIGINT, _handler)
@@ -654,7 +858,7 @@ def main(argv: Optional[list[str]] = None) -> int:
     tab_specs = args.tabs if args.tabs else cfg.get("tabs", [])
 
     baudrate = args.baudrate if args.baudrate is not None else cfg.get("baudrate", 115200)
-    log_dir = Path(args.log_dir if args.log_dir is not None else cfg.get("log_dir", "logs/"))
+    logs_root = Path(args.log_dir if args.log_dir is not None else cfg.get("log_dir", "logs/"))
     host = args.host if args.host is not None else cfg.get("host", "127.0.0.1")
     ws_port = args.ws_port if args.ws_port is not None else cfg.get("ws_port", 0)
     ws_ui = args.ws_ui if args.ws_ui is not None else cfg.get("ws_ui", "frontend/index.html")
@@ -705,23 +909,37 @@ def main(argv: Optional[list[str]] = None) -> int:
                 parser.error(f"--tab {label!r}: unknown source {p!r}")
         tabs.append({"label": label, "panes": panes})
 
-    sources = [
-        {
+    tab_label_by_source: dict[str, str] = {}
+    for tab in tabs:
+        for pane in tab["panes"]:
+            tab_label_by_source[pane] = tab["label"]
+
+    session_id = datetime.now().astimezone().strftime("%Y-%m-%d_%H-%M-%S")
+    session_dir = logs_root / session_id
+    session_dir.mkdir(parents=True, exist_ok=True)
+
+    sources = []
+    for name in source_names:
+        tab_label = tab_label_by_source.get(name, "session")
+        log_name = f"{_slug(tab_label)}__{_slug(name)}__{session_id}.log"
+        sources.append({
             "name": name,
             "source": source_objects[name],
             "inject_port": inject_ports.get(name),
-            "log_file": str(log_dir / f"{name}.log"),
-        }
-        for name in source_names
-    ]
+            "log_file": str(session_dir / log_name),
+        })
 
     LogServer(
         sources,
         tabs,
+        session_id=session_id,
+        session_dir=str(session_dir),
+        logs_root=str(logs_root),
         host=host,
         verbose=verbose,
         ws_port=ws_port,
         ws_ui=ws_ui,
+        config_path=args.config,
     ).run_forever()
     return 0
 

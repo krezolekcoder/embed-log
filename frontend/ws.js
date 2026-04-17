@@ -39,6 +39,7 @@ function wsConnect() {
         // Config message — server tells us the tab/pane layout upfront.
         // Create all tabs before any log data arrives.
         if (msg.type === "config") {
+            window.__embedLogSetSession?.(msg.session || null);
             // If tabs already exist (e.g. restored from local cache), keep them.
             if (TABS.length === 0 && msg.tabs && msg.tabs.length > 0) {
                 msg.tabs.forEach(tab =>

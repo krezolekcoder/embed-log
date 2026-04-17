@@ -60,6 +60,163 @@ document.getElementById("btn-font-inc").addEventListener("click", () => {
 })();
 
 // ---------------------------------------------------------------------------
+// Toolbar — sessions list popup (open session.html directly)
+// ---------------------------------------------------------------------------
+(function () {
+    const exportBtn = document.getElementById("btn-export");
+    if (!exportBtn || !exportBtn.parentElement) return;
+
+    const btn = document.createElement("button");
+    btn.id = "btn-sessions";
+    btn.title = "Browse saved sessions";
+    btn.textContent = "Sessions";
+
+    const btnCurrent = document.createElement("button");
+    btnCurrent.id = "btn-current-session";
+    btnCurrent.title = "Open current session HTML";
+    btnCurrent.textContent = "Current HTML";
+
+    exportBtn.after(btnCurrent);
+    btnCurrent.after(btn);
+
+    const menu = document.createElement("div");
+    menu.id = "sessions-menu";
+    menu.innerHTML = `<div class="sessions-head">Saved sessions</div><div class="sessions-body">Loading…</div>`;
+    document.body.appendChild(menu);
+
+    async function openCurrentSessionHtml() {
+        try {
+            const res = await fetch("/api/session/current", { cache: "no-store" });
+            if (!res.ok) throw new Error(String(res.status));
+            const data = await res.json();
+            if (!data || !data.html) throw new Error("no html path");
+            if (!data.html_ready) {
+                const prev = btnCurrent.textContent;
+                btnCurrent.textContent = "HTML pending";
+                btnCurrent.disabled = true;
+                setTimeout(() => {
+                    btnCurrent.textContent = prev;
+                    btnCurrent.disabled = false;
+                }, 1200);
+                return;
+            }
+            window.open(data.html, "_blank", "noopener");
+        } catch {
+            const prev = btnCurrent.textContent;
+            btnCurrent.textContent = "Unavailable";
+            btnCurrent.disabled = true;
+            setTimeout(() => {
+                btnCurrent.textContent = prev;
+                btnCurrent.disabled = false;
+            }, 1200);
+        }
+    }
+
+    btnCurrent.addEventListener("click", openCurrentSessionHtml);
+
+    async function loadSessions() {
+        const body = menu.querySelector(".sessions-body");
+        body.textContent = "Loading…";
+        try {
+            const res = await fetch("/api/sessions", { cache: "no-store" });
+            if (!res.ok) throw new Error(String(res.status));
+            const data = await res.json();
+            const sessions = Array.isArray(data.sessions) ? data.sessions : [];
+            const current = data.current || null;
+
+            if (!sessions.length) {
+                body.textContent = "No sessions found.";
+                return;
+            }
+
+            body.innerHTML = "";
+            sessions.forEach(s => {
+                const row = document.createElement("div");
+                row.className = "session-row";
+
+                const meta = document.createElement("div");
+                meta.className = "session-meta";
+                meta.textContent = s.started_at || s.id;
+
+                const tags = document.createElement("div");
+                tags.className = "session-tags";
+                if (s.id === current) {
+                    const tag = document.createElement("span");
+                    tag.className = "session-tag current";
+                    tag.textContent = "current";
+                    tags.appendChild(tag);
+                }
+                if (!s.html_ready) {
+                    const tag = document.createElement("span");
+                    tag.className = "session-tag pending";
+                    tag.textContent = "html pending";
+                    tags.appendChild(tag);
+                }
+
+                const actions = document.createElement("div");
+                actions.className = "session-actions";
+
+                const htmlLink = document.createElement("a");
+                htmlLink.target = "_blank";
+                htmlLink.rel = "noopener";
+                htmlLink.textContent = "open html";
+                if (s.html_ready && s.html) {
+                    htmlLink.href = s.html;
+                } else {
+                    htmlLink.href = "#";
+                    htmlLink.classList.add("disabled");
+                    htmlLink.addEventListener("click", ev => ev.preventDefault());
+                }
+
+                const manifestLink = document.createElement("a");
+                manifestLink.target = "_blank";
+                manifestLink.rel = "noopener";
+                manifestLink.textContent = "manifest";
+                manifestLink.href = s.manifest || "#";
+
+                actions.appendChild(htmlLink);
+                actions.appendChild(manifestLink);
+
+                row.appendChild(meta);
+                row.appendChild(tags);
+                row.appendChild(actions);
+                body.appendChild(row);
+            });
+        } catch {
+            body.textContent = "Sessions API unavailable.";
+        }
+    }
+
+    function openMenu() {
+        loadSessions();
+        const rect = btn.getBoundingClientRect();
+        menu.style.left = `${Math.max(8, rect.left)}px`;
+        menu.style.top = `${rect.bottom + 6}px`;
+        menu.classList.add("open");
+    }
+
+    function closeMenu() {
+        menu.classList.remove("open");
+    }
+
+    btn.addEventListener("click", ev => {
+        ev.stopPropagation();
+        if (menu.classList.contains("open")) closeMenu();
+        else openMenu();
+    });
+
+    document.addEventListener("click", ev => {
+        if (!menu.classList.contains("open")) return;
+        if (menu.contains(ev.target) || ev.target === btn) return;
+        closeMenu();
+    });
+
+    document.addEventListener("keydown", ev => {
+        if (ev.key === "Escape") closeMenu();
+    });
+})();
+
+// ---------------------------------------------------------------------------
 // Toolbar — sync toggle
 // ---------------------------------------------------------------------------
 const btnSync = document.getElementById("btn-sync");

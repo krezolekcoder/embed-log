@@ -50,6 +50,8 @@ python3 backend/server.py \
   --ws-port 8080
 ```
 
+Logs are saved in per-session subdirectories under `logs.dir` (from YAML), including `manifest.json` and `session.html`.
+
 UI (when `ws_port` is enabled):
 
 ```text

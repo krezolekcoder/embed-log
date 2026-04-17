@@ -183,7 +183,13 @@ python3 backend/server.py \
   --ws-port 8080
 ```
 
-Log files are written to `<log-dir>/<NAME>.log` (default: `logs/<NAME>.log`).
+Log files are written into a new per-run session directory under `logs.dir` / `--log-dir`, for example:
+
+`logs/2026-04-17_23-02-25/<TAB>__<SOURCE>__2026-04-17_23-02-25.log`
+
+Each session directory also contains:
+- `manifest.json` (session metadata + file mapping)
+- `session.html` (auto-exported when the server gets SIGINT/SIGTERM, and when the last WS client disconnects)
 
 ### YAML schema (v1)
 
@@ -254,7 +260,7 @@ When `--ws-port` is set:
 http://127.0.0.1:8080/
 ```
 
-The UI streams both device panes live, supports per-pane filtering, cross-pane timestamp sync, and HTML export. See [FRONTEND.md](FRONTEND.md).
+The UI streams both device panes live, supports per-pane filtering, cross-pane timestamp sync, and HTML export. It also includes a **Sessions** popup in the toolbar to open saved session HTML files directly. See [FRONTEND.md](FRONTEND.md).
 
 ---
 
