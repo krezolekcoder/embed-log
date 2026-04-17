@@ -18,6 +18,7 @@ export function renderTabBar() {
             const btn = document.createElement("button");
             btn.className = "tab-btn" + (idx === state.activeTab ? " active" : "");
             btn.textContent = tab.label;
+            btn.dataset.tabIdx = String(idx);
             btn.addEventListener("click", () => switchTab(idx));
             bar.appendChild(btn);
         });
