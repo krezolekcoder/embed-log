@@ -4,5 +4,6 @@
 // pulled in explicitly here.
 import './themes.js';
 import './settings.js';
+import './persist.js';
 import './ws.js';
 import './export.js';

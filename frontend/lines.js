@@ -85,6 +85,7 @@ export function appendLine(paneId, ts, rawText, isTx) {
 
     if (state.atBottom[paneId]) logEl.scrollTop = logEl.scrollHeight;
     updateJumpBtn(paneId);
+    window.__embedLogSchedulePersist?.();
 }
 
 export function rerenderPane(paneId) {
@@ -146,6 +147,7 @@ export function clearPane(paneId) {
     updateJumpBtn(paneId);
     // Hide the copy button if selection.js has added one
     document.getElementById("copy-" + paneId)?.classList.remove("visible");
+    window.__embedLogSchedulePersist?.();
 }
 
 document.getElementById("btn-clear").addEventListener("click", () => PANES.forEach(clearPane));

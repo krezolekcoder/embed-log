@@ -1,4 +1,4 @@
-import { state, PANES } from './state.js';
+import { state, TABS, PANES } from './state.js';
 import { appendLine } from './lines.js';
 import { createTabWithPanes, createDynamicTab } from './tabcreate.js';
 import { switchTab } from './tabs.js';
@@ -39,12 +39,14 @@ function wsConnect() {
         // Config message — server tells us the tab/pane layout upfront.
         // Create all tabs before any log data arrives.
         if (msg.type === "config") {
-            if (msg.tabs && msg.tabs.length > 0) {
+            // If tabs already exist (e.g. restored from local cache), keep them.
+            if (TABS.length === 0 && msg.tabs && msg.tabs.length > 0) {
                 msg.tabs.forEach(tab =>
                     createTabWithPanes(tab.label, tab.panes, { switchTo: false })
                 );
                 switchTab(0);
             }
+            window.__embedLogAfterConfig?.(msg.tabs || []);
             return;
         }
 

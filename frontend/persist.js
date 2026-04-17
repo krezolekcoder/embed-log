@@ -1,0 +1,115 @@
+import { state, TABS, PANES } from './state.js';
+import { appendLine, updateJumpBtn } from './lines.js';
+import { createTabWithPanes } from './tabcreate.js';
+import { switchTab } from './tabs.js';
+
+const STORAGE_KEY = 'embed-log:session:v1';
+const MAX_LINES_PER_PANE = 1500;
+const SAVE_DEBOUNCE_MS = 500;
+
+let _restoreDone = false;
+let _restoring = false;
+let _saveTimer = null;
+
+function _safeJsonParse(text) {
+    try { return JSON.parse(text); } catch { return null; }
+}
+
+function _snapshot() {
+    const lines = {};
+    PANES.forEach(paneId => {
+        const src = state.rawLines[paneId] || [];
+        const sliced = src.slice(-MAX_LINES_PER_PANE).map(line => ({
+            ts: line.ts,
+            text: line.rawText ?? '',
+            isTx: !!line.isTx,
+        }));
+        if (sliced.length) lines[paneId] = sliced;
+    });
+
+    return {
+        tabs: TABS.map(t => ({ label: t.label, panes: [...t.panes] })),
+        activeTab: state.activeTab,
+        lines,
+        savedAt: Date.now(),
+    };
+}
+
+function _saveNow() {
+    if (_restoring) return;
+    try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(_snapshot()));
+    } catch {
+        // Ignore quota / private mode errors.
+    }
+}
+
+function _restoreIfPossible() {
+    if (_restoreDone) return;
+
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) {
+        _restoreDone = true;
+        return;
+    }
+    const snap = _safeJsonParse(raw);
+    if (!snap) {
+        _restoreDone = true;
+        return;
+    }
+
+    _restoring = true;
+
+    // If there is no live layout yet, recreate last known layout first.
+    if (TABS.length === 0 && Array.isArray(snap.tabs) && snap.tabs.length) {
+        snap.tabs.forEach(tab => {
+            if (!tab || !Array.isArray(tab.panes) || !tab.panes.length) return;
+            createTabWithPanes(tab.label || 'Tab', tab.panes, { switchTo: false });
+        });
+        if (TABS.length) {
+            const idx = Math.max(0, Math.min(Number(snap.activeTab) || 0, TABS.length - 1));
+            switchTab(idx);
+        }
+    }
+
+    // Refill panes that are currently empty.
+    const byPane = snap.lines && typeof snap.lines === 'object' ? snap.lines : {};
+    Object.entries(byPane).forEach(([paneId, entries]) => {
+        if (!PANES.includes(paneId)) return;
+        if (!Array.isArray(entries) || entries.length === 0) return;
+        if ((state.rawLines[paneId] || []).length > 0) return; // avoid duplicates
+
+        state.atBottom[paneId] = false;
+        entries.forEach(e => {
+            appendLine(paneId, e.ts || '', e.text || '', !!e.isTx);
+        });
+        const logEl = document.getElementById('log-' + paneId);
+        if (logEl) {
+            logEl.scrollTop = logEl.scrollHeight;
+            state.atBottom[paneId] = true;
+            updateJumpBtn(paneId);
+        }
+    });
+
+    _restoring = false;
+    _restoreDone = true;
+}
+
+window.__embedLogSchedulePersist = function __embedLogSchedulePersist() {
+    clearTimeout(_saveTimer);
+    _saveTimer = setTimeout(_saveNow, SAVE_DEBOUNCE_MS);
+};
+
+window.__embedLogAfterConfig = function __embedLogAfterConfig() {
+    _restoreIfPossible();
+};
+
+window.__embedLogClearCache = function __embedLogClearCache() {
+    clearTimeout(_saveTimer);
+    try { localStorage.removeItem(STORAGE_KEY); } catch {}
+};
+
+// If WS is disabled/unreachable, still try to restore after initial load.
+setTimeout(_restoreIfPossible, 300);
+
+window.addEventListener('beforeunload', _saveNow);

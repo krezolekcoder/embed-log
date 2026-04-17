@@ -78,6 +78,7 @@ export function createTabWithPanes(label, paneIds, { switchTo = true } = {}) {
     // ---- 4. Show ----
     renderTabBar();
     if (switchTo) switchTab(tabIdx);
+    window.__embedLogSchedulePersist?.();
 }
 
 

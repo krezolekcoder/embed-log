@@ -34,6 +34,32 @@ document.getElementById("btn-font-inc").addEventListener("click", () => {
 });
 
 // ---------------------------------------------------------------------------
+// Toolbar — clear cached session (localStorage restore cache)
+// ---------------------------------------------------------------------------
+(function () {
+    const clearBtn = document.getElementById("btn-clear");
+    if (!clearBtn || !clearBtn.parentElement) return;
+
+    const btn = document.createElement("button");
+    btn.id = "btn-clear-cache";
+    btn.title = "Clear refresh cache (kept logs/layout in this browser)";
+    btn.textContent = "Clear cache";
+
+    btn.addEventListener("click", () => {
+        window.__embedLogClearCache?.();
+        const prev = btn.textContent;
+        btn.textContent = "Cache cleared";
+        btn.disabled = true;
+        setTimeout(() => {
+            btn.textContent = prev;
+            btn.disabled = false;
+        }, 1200);
+    });
+
+    clearBtn.after(btn);
+})();
+
+// ---------------------------------------------------------------------------
 // Toolbar — sync toggle
 // ---------------------------------------------------------------------------
 const btnSync = document.getElementById("btn-sync");
@@ -127,6 +153,7 @@ function _swapPanes(a, b) {
     [...new Set([locA.tabIdx, locB.tabIdx])].forEach(tabIdx => _rebuildTabContent(tabIdx, paneElMap));
     _pulsePane(a);
     _pulsePane(b);
+    window.__embedLogSchedulePersist?.();
 }
 
 function _buildSwapTargetOptions(select, fromPaneId) {
