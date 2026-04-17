@@ -115,13 +115,12 @@ export function _uiSetupTxPane(id) {
 PANES.forEach(_uiSetupTxPane);
 
 // ---------------------------------------------------------------------------
-// Splitter drag — works for any .splitter element; auto-detects left/right panes
+// Splitter drag — delegated, with pointer + mouse + touch fallback
+// (Safari/macOS trackpad friendly)
 // ---------------------------------------------------------------------------
-document.querySelectorAll(".splitter").forEach(splitter => {
-    splitter.addEventListener("pointerdown", e => {
+(function setupSplitterDrag() {
+    function findNeighborPanes(splitter) {
         const tabContent = splitter.parentElement;
-
-        // Find the nearest .pane before and after the splitter
         let paneLeft = null, paneRight = null, passed = false;
         for (const child of tabContent.children) {
             if (child === splitter) { passed = true; continue; }
@@ -130,28 +129,76 @@ document.querySelectorAll(".splitter").forEach(splitter => {
                 else if (!paneRight) paneRight = child;
             }
         }
+        return { tabContent, paneLeft, paneRight };
+    }
+
+    function eventX(ev) {
+        if (ev.touches && ev.touches[0]) return ev.touches[0].clientX;
+        if (ev.changedTouches && ev.changedTouches[0]) return ev.changedTouches[0].clientX;
+        return ev.clientX;
+    }
+
+    function startDrag(splitter, ev) {
+        const { tabContent, paneLeft, paneRight } = findNeighborPanes(splitter);
         if (!paneLeft || !paneRight) return;
 
+        ev.preventDefault();
         splitter.classList.add("dragging");
-        splitter.setPointerCapture(e.pointerId);
+        document.body.style.cursor = "col-resize";
 
-        const startX     = e.clientX;
+        const startX = eventX(ev);
         const startLeftW = paneLeft.getBoundingClientRect().width;
-        const totalW     = tabContent.getBoundingClientRect().width - splitter.offsetWidth;
+        const totalW = tabContent.getBoundingClientRect().width - splitter.offsetWidth;
 
-        function onMove(ev) {
-            const newLeft = Math.min(Math.max(startLeftW + ev.clientX - startX, 120), totalW - 120);
-            paneLeft.style.flex  = "none";
+        function onMove(moveEv) {
+            moveEv.preventDefault();
+            const x = eventX(moveEv);
+            const newLeft = Math.min(Math.max(startLeftW + x - startX, 120), totalW - 120);
+            paneLeft.style.flex = "none";
             paneRight.style.flex = "none";
-            paneLeft.style.width  = newLeft + "px";
+            paneLeft.style.width = newLeft + "px";
             paneRight.style.width = (totalW - newLeft) + "px";
         }
-        function onUp() {
+
+        function onEnd() {
             splitter.classList.remove("dragging");
-            splitter.removeEventListener("pointermove", onMove);
-            splitter.removeEventListener("pointerup",   onUp);
+            document.body.style.cursor = "";
+            window.removeEventListener("pointermove", onMove);
+            window.removeEventListener("pointerup", onEnd);
+            window.removeEventListener("pointercancel", onEnd);
+            window.removeEventListener("mousemove", onMove);
+            window.removeEventListener("mouseup", onEnd);
+            window.removeEventListener("touchmove", onMove);
+            window.removeEventListener("touchend", onEnd);
+            window.removeEventListener("touchcancel", onEnd);
         }
-        splitter.addEventListener("pointermove", onMove);
-        splitter.addEventListener("pointerup",   onUp);
+
+        // Register all move/end listeners; whichever event model fires will work.
+        window.addEventListener("pointermove", onMove);
+        window.addEventListener("pointerup", onEnd);
+        window.addEventListener("pointercancel", onEnd);
+        window.addEventListener("mousemove", onMove);
+        window.addEventListener("mouseup", onEnd);
+        window.addEventListener("touchmove", onMove, { passive: false });
+        window.addEventListener("touchend", onEnd);
+        window.addEventListener("touchcancel", onEnd);
+    }
+
+    document.addEventListener("pointerdown", ev => {
+        const splitter = ev.target.closest(".splitter");
+        if (!splitter) return;
+        startDrag(splitter, ev);
     });
-});
+
+    document.addEventListener("mousedown", ev => {
+        const splitter = ev.target.closest(".splitter");
+        if (!splitter) return;
+        startDrag(splitter, ev);
+    });
+
+    document.addEventListener("touchstart", ev => {
+        const splitter = ev.target.closest(".splitter");
+        if (!splitter) return;
+        startDrag(splitter, ev);
+    }, { passive: false });
+})();
