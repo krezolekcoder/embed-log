@@ -23,7 +23,8 @@ Quick onboarding notes for future coding agents and humans working in `embed-log
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
-./run_demo.sh
+python3 backend/server.py run --config examples/embed-log.yml
+# or: ./run_demo.sh
 ```
 
 UI: `http://127.0.0.1:8080/`

@@ -1,0 +1,33 @@
+version: 1
+
+server:
+  host: 127.0.0.1
+  ws_port: 8080
+  ws_ui: frontend/index.html
+  verbose: false
+
+logs:
+  dir: logs/
+
+sources:
+  - name: SENSOR_A
+    type: udp
+    port: 6000
+    inject_port: 5001
+
+  - name: SENSOR_B
+    type: udp
+    port: 6001
+    inject_port: 5002
+
+  - name: SENSOR_C
+    type: udp
+    port: 6002
+    inject_port: 5003
+
+tabs:
+  - label: Simulated Devices
+    panes: [SENSOR_A, SENSOR_B]
+
+  - label: Other Sensor
+    panes: [SENSOR_C]

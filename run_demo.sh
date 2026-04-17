@@ -16,21 +16,8 @@ cleanup() {
 }
 trap cleanup EXIT INT TERM
 
-echo "Starting embed-log server..."
-python3 backend/server.py \
-  --source SENSOR_A udp:6000 \
-  --source SENSOR_B udp:6001 \
-  --source SENSOR_C udp:6002 \
-  --inject SENSOR_A 5001 \
-  --inject SENSOR_B 5002 \
-  --inject SENSOR_C 5003 \
-  --tab "Simulated Devices" SENSOR_A SENSOR_B \
-  --tab "Other Sensor" SENSOR_C \
-  --host 127.0.0.1 \
-  --ws-port 8080 \
-  --ws-ui frontend/index.html \
-  --log-dir logs/ \
-  &
+echo "Starting embed-log server (YAML config)..."
+python3 backend/server.py run --config embed-log.demo.yml &
 
 sleep 1
 

@@ -2,117 +2,77 @@
 
 ## Requirements
 
-- Python 3.11+ (3.12 recommended)
-- [uv](https://docs.astral.sh/uv/) — Python package and project manager
-- A modern browser (Chrome, Firefox, Safari, Edge) for the frontend
+- Python 3.11+
+- A modern browser (Chrome, Firefox, Safari, Edge)
+
+Runtime Python dependencies:
+- `pyserial`
+- `aiohttp`
+- `PyYAML`
 
 ---
 
-## Python setup
+## Quick setup (no uv)
 
-### 1. Install uv
-
-```bash
-curl -LsSf https://astral.sh/uv/install.sh | sh
-```
-
-Or via pip:
+From project root:
 
 ```bash
-pip install uv
-```
-
-### 2. Create the virtual environment and install dependencies
-
-From the project root:
-
-```bash
-uv sync
-```
-
-This reads `pyproject.toml`, pins the Python version from `.python-version` (3.12), creates a `.venv/`, and installs `pyserial` and `aiohttp`.
-
-### 3. Run the server
-
-```bash
-uv run backend/server.py --source /dev/ttyUSB0 "Device A"
-```
-
-Or use the installed script entry point (after `uv sync`):
-
-```bash
-uv run embed-log --source /dev/ttyUSB0 "Device A"
-```
-
-Full usage:
-
-```bash
-uv run backend/server.py --help
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
 ```
 
 ---
 
-## Frontend
+## Start the server
 
-No build step or package manager required. The frontend is plain HTML + native ES modules served directly by the Python server.
-
-Open `http://localhost:8765` in your browser after starting the server.
-
----
-
-## Offline log viewer (merge_logs.py)
-
-Merge one or more `.log` files into a self-contained HTML file:
+### Recommended (YAML config)
 
 ```bash
-# Two panes in one tab
-uv run utils/merge_logs.py \
-    --tab "UART" "Device A" logs/device-a.log \
-                 "Device B" logs/device-b.log \
-    --output merged.html
-
-# Two tabs
-uv run utils/merge_logs.py \
-    --tab "UART"   "Device A" logs/device-a.log \
-                   "Device B" logs/device-b.log \
-    --tab "PYTEST" "Pytest"     logs/pytest.log \
-    --output run-42.html
+python3 backend/server.py run --config examples/embed-log.yml
 ```
 
-Open the resulting `.html` file in any browser — no server needed.
-
----
-
-## Development dependencies
-
-The project has no runtime JS dependencies. Python dev tools can be added to an optional group if needed:
+Demo config in repo root:
 
 ```bash
-uv add --dev ruff mypy   # example
+python3 backend/server.py run --config embed-log.demo.yml
+```
+
+### Legacy CLI mode (still supported)
+
+```bash
+python3 backend/server.py \
+  --source SENSOR_A udp:6000 \
+  --source SENSOR_B udp:6001 \
+  --inject SENSOR_A 5001 \
+  --inject SENSOR_B 5002 \
+  --tab "Devices" SENSOR_A SENSOR_B \
+  --ws-port 8080
+```
+
+UI (when `ws_port` is enabled):
+
+```text
+http://127.0.0.1:8080/
 ```
 
 ---
 
-## CI example (GitHub Actions)
+## One-command local demo
 
-```yaml
-- name: Set up Python with uv
-  uses: astral-sh/setup-uv@v4
-  with:
-    python-version-file: .python-version
-
-- name: Install dependencies
-  run: uv sync
-
-- name: Start embed-log
-  run: |
-    uv run backend/server.py \
-      --source /dev/ttyUSB0 "DUT" \
-      --inject 5001 \
-      &
-    echo $! > /tmp/embed-log.pid
-
-- name: Stop embed-log
-  if: always()
-  run: kill $(cat /tmp/embed-log.pid) || true
+```bash
+./run_demo.sh
 ```
+
+---
+
+## Offline merged viewer
+
+```bash
+python3 utils/merge_logs.py \
+  --tab "UART" "Device A" logs/DEVICE_A.log \
+               "Device B" logs/DEVICE_B.log \
+  --output merged.html
+```
+
+Open generated HTML directly in browser (no server needed).

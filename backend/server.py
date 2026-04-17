@@ -20,6 +20,7 @@ import re
 import select
 import signal
 import socket
+import sys
 import threading
 from abc import ABC, abstractmethod
 from datetime import datetime
@@ -29,6 +30,11 @@ from typing import Callable, Optional
 import aiohttp
 from aiohttp import web
 import serial
+
+try:
+    from .config import ConfigError, load_config
+except ImportError:
+    from config import ConfigError, load_config
 
 # ---------------------------------------------------------------------------
 # ANSI colors available to clients
@@ -377,7 +383,8 @@ class SourceManager:
                 if entry is None:
                     break
                 line = self._format(entry)
-                print(line, flush=True)
+                if self.verbose:
+                    print(line, flush=True)
                 f.write(line + "\n")
                 f.flush()
                 if self.broadcaster:
@@ -583,25 +590,21 @@ def _parse_source(name: str, spec: str, default_baudrate: int) -> LogSource:
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description="embed-log — log aggregator with WebSocket UI and TCP inject port.",
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
         epilog=(
-            "Example:\n"
-            "  python server.py \\\n"
-            "    --source DEVICE_A uart:/dev/ttyUSB0 \\\n"
-            "    --source DEVICE_B uart:/dev/ttyUSB1 \\\n"
-            "    --inject DEVICE_A 5001 \\\n"
-            "    --inject DEVICE_B 5002 \\\n"
-            "    --tab 'Devices' DEVICE_A DEVICE_B \\\n"
-            "    --ws-port 8080"
+            "Examples:\n"
+            "  embed-log run --config embed-log.yml\n"
+            "  python backend/server.py --config embed-log.yml\n"
+            "  python backend/server.py --source DEVICE_A uart:/dev/ttyUSB0 --inject DEVICE_A 5001"
         ),
     )
     parser.add_argument(
+        "--config", "-c", metavar="FILE", default=None,
+        help="YAML config file (version: 1). CLI flags override config values.",
+    )
+    parser.add_argument(
         "--source", nargs=2, action="append", metavar=("NAME", "TYPE"),
-        dest="sources", required=True,
-        help=(
-            "NAME  uart:/dev/path[@baud] | udp:PORT  "
-            "— repeat for multiple sources"
-        ),
+        dest="sources", default=[],
+        help="NAME  uart:/dev/path[@baud] | udp:PORT  — repeat for multiple sources",
     )
     parser.add_argument(
         "--inject", nargs=2, action="append", metavar=("NAME", "PORT"),
@@ -616,57 +619,81 @@ def _build_parser() -> argparse.ArgumentParser:
             "(repeat for multiple tabs; omit to get one tab per source)"
         ),
     )
-    parser.add_argument("--baudrate", metavar="BAUD", type=int, default=115200,
+    parser.add_argument("--baudrate", metavar="BAUD", type=int, default=None,
                         help="default baud rate for uart sources without an explicit @baud suffix")
-    parser.add_argument("--log-dir", metavar="DIR", default="logs/", dest="log_dir",
+    parser.add_argument("--log-dir", metavar="DIR", default=None, dest="log_dir",
                         help="directory for log files (<log-dir>/<NAME>.log)")
-    parser.add_argument("--host", metavar="HOST", default="127.0.0.1",
+    parser.add_argument("--host", metavar="HOST", default=None,
                         help="bind host for inject ports and WebSocket UI")
-    parser.add_argument("--ws-port", metavar="PORT", type=int, default=0, dest="ws_port",
+    parser.add_argument("--ws-port", metavar="PORT", type=int, default=None, dest="ws_port",
                         help="HTTP/WebSocket port for the browser UI (0 = disabled)")
-    parser.add_argument("--ws-ui", metavar="FILE", default="frontend/index.html", dest="ws_ui",
+    parser.add_argument("--ws-ui", metavar="FILE", default=None, dest="ws_ui",
                         help="path to the UI HTML file served at GET /")
-    parser.add_argument("-v", "--verbose", action="store_true",
-                        help="prefix every line with [name][source]")
+    parser.add_argument("-v", "--verbose", action="store_const", const=True, default=None,
+                        help="verbose mode: print live lines to stdout, show INFO diagnostics, and prefix lines with [name][source]")
     return parser
 
 
-if __name__ == "__main__":
+def main(argv: Optional[list[str]] = None) -> int:
+    argv = list(sys.argv[1:] if argv is None else argv)
+    if argv and argv[0] == "run":
+        argv = argv[1:]
+
+    parser = _build_parser()
+    args = parser.parse_args(argv)
+
+    cfg = {}
+    if args.config:
+        try:
+            cfg = load_config(args.config)
+        except ConfigError as exc:
+            parser.error(f"config error: {exc}")
+
+    source_specs = args.sources if args.sources else cfg.get("sources", [])
+    inject_specs = args.injects if args.injects else cfg.get("injects", [])
+    tab_specs = args.tabs if args.tabs else cfg.get("tabs", [])
+
+    baudrate = args.baudrate if args.baudrate is not None else cfg.get("baudrate", 115200)
+    log_dir = Path(args.log_dir if args.log_dir is not None else cfg.get("log_dir", "logs/"))
+    host = args.host if args.host is not None else cfg.get("host", "127.0.0.1")
+    ws_port = args.ws_port if args.ws_port is not None else cfg.get("ws_port", 0)
+    ws_ui = args.ws_ui if args.ws_ui is not None else cfg.get("ws_ui", "frontend/index.html")
+    verbose = args.verbose if args.verbose is not None else cfg.get("verbose", False)
+
     logging.basicConfig(
-        level=logging.INFO,
+        level=logging.INFO if verbose else logging.WARNING,
         format="%(asctime)s  %(levelname)-8s  %(message)s",
         datefmt="%H:%M:%S",
     )
 
-    parser = _build_parser()
-    args = parser.parse_args()
-    log_dir = Path(args.log_dir)
+    if not source_specs:
+        parser.error("no sources configured. Use --source ... or --config FILE with sources: ...")
 
     # --- sources ---
     source_names: list[str] = []
     source_objects: dict[str, LogSource] = {}
-    for name, spec in args.sources:
+    for name, spec in source_specs:
         if name in source_objects:
             parser.error(f"duplicate --source name: {name!r}")
         try:
-            source_objects[name] = _parse_source(name, spec, args.baudrate)
+            source_objects[name] = _parse_source(name, spec, baudrate)
         except argparse.ArgumentTypeError as e:
             parser.error(str(e))
         source_names.append(name)
 
     # --- injects ---
     inject_ports: dict[str, int] = {}
-    for name, port_str in args.injects:
+    for name, port_value in inject_specs:
         if name not in source_objects:
             parser.error(f"--inject {name!r}: no --source with that name")
         try:
-            inject_ports[name] = int(port_str)
+            inject_ports[name] = int(port_value)
         except ValueError:
-            parser.error(f"--inject {name!r}: port must be an integer, got {port_str!r}")
+            parser.error(f"--inject {name!r}: port must be an integer, got {port_value!r}")
 
     # --- tabs ---
     tabs: list[dict] = []
-    for tab_entry in args.tabs:
+    for tab_entry in tab_specs:
         if len(tab_entry) < 2:
             parser.error(f"--tab requires at least LABEL SOURCE, got: {tab_entry}")
         if len(tab_entry) > 3:
@@ -691,8 +718,13 @@ if __name__ == "__main__":
     LogServer(
         sources,
         tabs,
-        host=args.host,
-        verbose=args.verbose,
-        ws_port=args.ws_port,
-        ws_ui=args.ws_ui,
+        host=host,
+        verbose=verbose,
+        ws_port=ws_port,
+        ws_ui=ws_ui,
     ).run_forever()
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

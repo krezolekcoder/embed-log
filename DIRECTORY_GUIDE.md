@@ -41,6 +41,8 @@ Short, practical map of this repository for humans and coding agents.
 - `MERGE.md` — merged-log report behavior.
 - `SAMPLE_COMMANDS.md` — copy/paste examples.
 - `run_demo.sh` — one-command local demo launcher.
+- `embed-log.demo.yml` — demo runtime configuration (YAML, version 1).
+- `examples/embed-log.yml` — example user/CI YAML config.
 - `requirements.txt` / `pyproject.toml` — Python dependencies and metadata.
 
 ## Fast orientation by task

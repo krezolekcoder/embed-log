@@ -147,7 +147,7 @@ See [MERGE.md](MERGE.md) for offline log merging with `merge_logs.py`.
 pip install -r requirements.txt
 ```
 
-Requirements: `pyserial`, `aiohttp`
+Requirements: `pyserial`, `aiohttp`, `PyYAML`
 
 ---
 
@@ -155,13 +155,25 @@ Requirements: `pyserial`, `aiohttp`
 
 All commands are run from the project root directory.
 
+### Recommended: YAML config
+
 ```bash
-# Single UART source, no browser UI
-python3 backend/server.py \
-  --source DEVICE_A uart:/dev/ttyUSB0 \
-  --inject DEVICE_A 5001
+# packaged entrypoint
+embed-log run --config examples/embed-log.yml
 
-# Two UART sources, side-by-side in the browser
+# or plain python
+python3 backend/server.py run --config examples/embed-log.yml
+```
+
+A full demo config is included in the repo root:
+
+```bash
+python3 backend/server.py run --config embed-log.demo.yml
+```
+
+### Legacy CLI (still supported)
+
+```bash
 python3 backend/server.py \
   --source DEVICE_A uart:/dev/ttyUSB0 \
   --source DEVICE_B uart:/dev/ttyUSB1 \
@@ -169,32 +181,42 @@ python3 backend/server.py \
   --inject DEVICE_B 5002 \
   --tab "Devices" DEVICE_A DEVICE_B \
   --ws-port 8080
-
-# Mixed sources — UART + UDP listener
-python3 backend/server.py \
-  --source DEVICE_A uart:/dev/ttyUSB0 \
-  --source SENSOR   udp:6000 \
-  --inject DEVICE_A 5001 \
-  --tab "Hardware" DEVICE_A \
-  --tab "Software" SENSOR \
-  --ws-port 8080
-
-# All options
-python3 backend/server.py \
-  --source DEVICE_A uart:/dev/ttyUSB0@9600 \
-  --source DEVICE_B uart:/dev/ttyUSB1 \
-  --inject DEVICE_A 5001 \
-  --inject DEVICE_B 5002 \
-  --tab "Devices" DEVICE_A DEVICE_B \
-  --baudrate 115200 \
-  --log-dir /tmp/ci-logs/ \
-  --host 0.0.0.0 \
-  --ws-port 8080 \
-  --ws-ui frontend/index.html \
-  -v
 ```
 
 Log files are written to `<log-dir>/<NAME>.log` (default: `logs/<NAME>.log`).
+
+### YAML schema (v1)
+
+```yaml
+version: 1
+
+server:
+  host: 127.0.0.1
+  ws_port: 8080
+  ws_ui: frontend/index.html
+  verbose: false
+
+logs:
+  dir: logs/
+
+# optional default UART baudrate
+baudrate: 115200
+
+sources:
+  - name: DUT_UART
+    type: uart
+    port: /dev/ttyUSB0
+    inject_port: 5001
+
+  - name: SENSOR_A
+    type: udp
+    port: 6000
+    inject_port: 5002
+
+tabs:
+  - label: Devices
+    panes: [DUT_UART, SENSOR_A]
+```
 
 ### Source types
 
@@ -207,16 +229,19 @@ Log files are written to `<log-dir>/<NAME>.log` (default: `logs/<NAME>.log`).
 ### All CLI options
 
 ```
+  run                     optional subcommand alias (both styles work)
+  --config, -c FILE       YAML config file (version: 1)
+
   --source NAME TYPE      NAME  uart:/dev/path[@baud] | udp:PORT
-                          repeat for multiple sources (required)
+                          repeat for multiple sources
   --inject NAME PORT      TCP inject/stream port for a source (optional, repeat)
   --tab LABEL S1 [S2]     group 1 or 2 sources into a UI tab (optional, repeat)
-                          omit to get one tab per source automatically
-  --baudrate BAUD         default baud rate for uart sources (default: 115200)
-  --log-dir DIR           log file directory (default: logs/)
-  --host HOST             bind host for inject ports and WebSocket UI (default: 127.0.0.1)
-  --ws-port PORT          HTTP/WebSocket port for the browser UI (0 = disabled, default: 0)
-  --ws-ui FILE            path to the UI HTML file served at GET / (default: frontend/index.html)
+
+  --baudrate BAUD         default baud rate for uart sources without @baud
+  --log-dir DIR           log file directory
+  --host HOST             bind host for inject ports and WebSocket UI
+  --ws-port PORT          HTTP/WebSocket port for the browser UI (0 = disabled)
+  --ws-ui FILE            path to the UI HTML file served at GET /
   -v, --verbose           prefix every line with [name][source]
   -h, --help
 ```

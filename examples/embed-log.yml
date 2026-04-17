@@ -1,0 +1,28 @@
+version: 1
+
+server:
+  host: 127.0.0.1
+  ws_port: 8080
+  ws_ui: frontend/index.html
+  verbose: false
+
+logs:
+  dir: logs/
+
+# Optional global UART baudrate for uart sources without explicit per-source baudrate
+baudrate: 115200
+
+sources:
+  - name: DUT_UART
+    type: uart
+    port: /dev/ttyUSB0
+    inject_port: 5001
+
+  - name: SENSOR_A
+    type: udp
+    port: 6000
+    inject_port: 5002
+
+tabs:
+  - label: Devices
+    panes: [DUT_UART, SENSOR_A]
