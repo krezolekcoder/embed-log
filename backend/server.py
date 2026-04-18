@@ -904,6 +904,7 @@ class LogServer:
 
 _SOURCE_RE = re.compile(r"^(uart|udp):(.+)$", re.IGNORECASE)
 _UART_BAUD_RE = re.compile(r"^(.+)@(\d+)$")
+DEFAULT_WS_UI = str((Path(__file__).resolve().parents[1] / "frontend" / "index.html").resolve())
 
 
 def _parse_source(name: str, spec: str, default_baudrate: int) -> LogSource:
@@ -936,7 +937,8 @@ def _default_init_yaml() -> str:
 server:
   host: 127.0.0.1
   ws_port: 8080
-  ws_ui: frontend/index.html
+  # optional override, otherwise built-in default UI is used
+  # ws_ui: /absolute/path/to/index.html
   app_name: embed-log
   open_browser: false
   verbose: false
@@ -1102,7 +1104,7 @@ def main(argv: Optional[list[str]] = None) -> int:
     logs_root = Path(args.log_dir if args.log_dir is not None else cfg.get("log_dir", "logs/"))
     host = args.host if args.host is not None else cfg.get("host", "127.0.0.1")
     ws_port = args.ws_port if args.ws_port is not None else cfg.get("ws_port", 0)
-    ws_ui = args.ws_ui if args.ws_ui is not None else cfg.get("ws_ui", "frontend/index.html")
+    ws_ui = args.ws_ui if args.ws_ui is not None else cfg.get("ws_ui", DEFAULT_WS_UI)
     app_name = args.app_name if args.app_name is not None else cfg.get("app_name", "embed-log")
     verbose = args.verbose if args.verbose is not None else cfg.get("verbose", False)
     open_browser = args.open_browser if args.open_browser is not None else cfg.get("open_browser", False)

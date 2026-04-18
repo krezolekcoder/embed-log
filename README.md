@@ -213,7 +213,8 @@ version: 1
 server:
   host: 127.0.0.1
   ws_port: 8080
-  ws_ui: frontend/index.html
+  # optional override; built-in UI path is auto-detected
+  # ws_ui: /absolute/path/to/index.html
   app_name: embed-log
   open_browser: false
   verbose: false

@@ -3,7 +3,6 @@ version: 1
 server:
   host: 127.0.0.1
   ws_port: 8080
-  ws_ui: frontend/index.html
   app_name: demo
   open_browser: true
   verbose: false
