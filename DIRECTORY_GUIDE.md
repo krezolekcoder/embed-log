@@ -28,8 +28,8 @@ Short, practical map of this repository for humans and coding agents.
   - Includes UDP simulator, inject demo sender, and log merge utility.
 
 - `logs/`
-  - Runtime output logs (`<SOURCE>.log`).
-  - Generated/updated when server runs.
+  - Runtime output generated per session (e.g. `logs/<session_id>/`).
+  - Session directory contains raw logs plus `manifest.json` and `session.html`.
 
 - `tests/`
   - Unit tests for config parsing, source parsing, and session components.
@@ -45,6 +45,8 @@ Short, practical map of this repository for humans and coding agents.
 
 ## Important root files
 
+> Note: this file mirrors the high-level tree in `README.md`.
+
 - `README.md` — main project documentation and backend overview.
 - `AGENTS.md` — quick instructions for future contributors/agents.
 - `INSTALL.md` — setup and run prerequisites.
@@ -54,7 +56,7 @@ Short, practical map of this repository for humans and coding agents.
 - `run_demo.sh` — one-command local demo launcher.
 - `embed-log.demo.yml` — demo runtime configuration (YAML, version 1).
 - `examples/embed-log.yml` — example user/CI YAML config.
-- `requirements.txt` / `pyproject.toml` — Python dependencies and metadata.
+- `requirements.txt` / `pyproject.toml` — Python dependencies and packaging metadata.
 
 ## Fast orientation by task
 

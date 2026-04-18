@@ -16,11 +16,11 @@ Serial log server for embedded device CI. Reads UART output from one or more dev
   - `backend/log_client.py` for marker injection + background subscription.
   - `backend/tx_client.py` for TX-only flows.
 
-### Good next backend improvements (possible)
-- **Backpressure/retention controls** (bounded queues, drop counters, source health stats).
-- **Operational endpoints** (`/health`, `/metrics`, `/stats`) for CI monitoring.
-- **Auth/network hardening** for non-local deployments (token, stricter bind model).
-- **Replay/search APIs** (server-side history window, regex search across buffered logs).
+### Suggested next backend priorities
+1. **Bounded queues + drop/backpressure counters** for safer sustained ingestion.
+2. **Operational endpoints** (`/health`, `/stats`) for CI observability.
+3. **Optional server-side retention/replay window** for late clients and debugging.
+4. **Optional auth/network hardening** for non-local deployments.
 
 ---
 
@@ -36,29 +36,80 @@ Serial log server for embedded device CI. Reads UART output from one or more dev
 
 ## Project structure
 
-```
+```text
 embed-log/
-├── README.md          this file
-├── FRONTEND.md        browser UI architecture
-├── MERGE.md           offline log merging with merge_logs.py
+├── README.md
+├── AGENTS.md
+├── INSTALL.md
+├── FRONTEND.md
+├── MERGE.md
+├── DIRECTORY_GUIDE.md
+├── SAMPLE_COMMANDS.md
+├── pyproject.toml
 ├── requirements.txt
+├── embed-log.demo.yml
+├── run_demo.sh
 │
-├── frontend/          browser UI (HTML, CSS, JS — no build step)
+├── examples/
+│   └── embed-log.yml
+│
+├── backend/
+│   ├── server.py               # compatibility entrypoint
+│   ├── cli.py                  # init / validate / run commands
+│   ├── app.py                  # app composition + startup wiring
+│   ├── log_client.py           # inject marker + stream subscription client
+│   ├── tx_client.py            # TX-only client
+│   ├── config/
+│   │   ├── loader.py
+│   │   └── models.py
+│   ├── core/
+│   │   ├── runtime.py
+│   │   └── naming.py
+│   ├── net/
+│   │   ├── ws_server.py
+│   │   ├── inject_server.py
+│   │   └── forward_server.py
+│   ├── session/
+│   │   ├── manager.py
+│   │   └── exporter.py
+│   ├── sources/
+│   │   ├── base.py
+│   │   ├── uart.py
+│   │   └── udp.py
+│   └── sinks/
+│
+├── frontend/                   # no build step; plain HTML/CSS/JS modules
 │   ├── index.html
 │   ├── viewer.css
-│   ├── state.js  ansi.js  lines.js  tabs.js  ui.js  ws.js  export.js
+│   ├── main.js
+│   ├── state.js
+│   ├── ws.js
+│   ├── lines.js
+│   ├── tabs.js
+│   ├── tabcreate.js
+│   ├── ui.js
+│   ├── settings.js
+│   ├── themes.js
+│   ├── persist.js
+│   ├── selection.js
+│   ├── import.js
+│   ├── export.js
+│   ├── ansi.js
+│   └── tsparse.js
 │
-├── backend/           server and client library
-│   ├── server.py      log server (serial + TCP + WebSocket)
-│   ├── log_client.py  marker + subscribe client API
-│   └── tx_client.py   TX-only client API
+├── utils/
+│   ├── merge_logs.py
+│   ├── udp_log_simulator.py
+│   ├── inject_log_demo.py
+│   ├── sim_messages.txt
+│   └── inject_messages.txt
 │
-└── utils/
-    ├── merge_logs.py        offline HTML viewer generator
-    ├── udp_log_simulator.py UDP traffic simulator for udp:PORT sources
-    ├── sim_messages.txt     message corpus for simulator
-    ├── inject_messages.txt  message corpus for inject demo
-    └── inject_log_demo.py   inject-port marker demo client
+├── tests/
+│   ├── test_app_parse_source.py
+│   ├── test_config_loader.py
+│   └── test_session_components.py
+│
+└── logs/                       # runtime output: sessions, manifests, exports
 ```
 
 ---
