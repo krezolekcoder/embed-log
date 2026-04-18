@@ -557,3 +557,13 @@ python3 utils/inject_log_demo.py \
 
 Messages are randomly selected from `utils/inject_messages.txt`.
 
+---
+
+## Unit tests
+
+Run from project root:
+
+```bash
+.venv/bin/python3 -m unittest discover -s tests -v
+```
+

@@ -40,7 +40,10 @@ Tip: `server.app_name` (or `--app-name`) customizes the top-left UI bar name.
 
 ## Key code locations
 
-- Backend core: `backend/server.py`
+- Backend core runtime: `backend/core/runtime.py`
+- Backend CLI/entry compatibility: `backend/cli.py`, `backend/server.py`
+- Slug/naming helper: `backend/core/naming.py`
+- Unit tests: `tests/` (run with `python3 -m unittest discover -s tests -v`)
 - Client APIs: `backend/log_client.py`, `backend/tx_client.py`
 - Frontend entry: `frontend/main.js`
 - Frontend state/layout: `frontend/state.js`, `frontend/tabs.js`, `frontend/tabcreate.js`, `frontend/ui.js`

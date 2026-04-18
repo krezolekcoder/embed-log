@@ -7,7 +7,15 @@ Short, practical map of this repository for humans and coding agents.
 - `backend/`
   - Core log server and Python client APIs.
   - Key files:
-    - `server.py` — main runtime (sources, inject ports, WS UI broadcast).
+    - `server.py` — compatibility entrypoint (`backend.server:main`) + runtime re-exports.
+    - `cli.py` — command parsing (`init`, `validate`, `run`).
+    - `app.py` — app composition/startup (sources, tabs, session dir/log wiring).
+    - `core/runtime.py` — runtime engine (`LogServer`, `SourceManager`, line formatting/router loop).
+    - `net/ws_server.py` — WebSocket/HTTP UI server implementation.
+    - `net/inject_server.py` / `net/forward_server.py` — TCP inject/forward socket servers.
+    - `sources/base.py`, `sources/uart.py`, `sources/udp.py` — source adapter interfaces + implementations.
+    - `session/manager.py`, `session/exporter.py` — session metadata/manifest + HTML export orchestration.
+    - `config/loader.py` — YAML config parsing/validation.
     - `log_client.py` — marker injection + stream subscription client.
     - `tx_client.py` — TX-only client.
 
@@ -22,6 +30,9 @@ Short, practical map of this repository for humans and coding agents.
 - `logs/`
   - Runtime output logs (`<SOURCE>.log`).
   - Generated/updated when server runs.
+
+- `tests/`
+  - Unit tests for config parsing, source parsing, and session components.
 
 - `.venv/`
   - Local virtual environment (developer-local).
@@ -47,7 +58,7 @@ Short, practical map of this repository for humans and coding agents.
 
 ## Fast orientation by task
 
-- Need to change ingestion or protocol? → `backend/server.py`
+- Need to change ingestion or protocol? → `backend/core/runtime.py`
 - Need to change browser behavior/layout? → `frontend/`
 - Need demo traffic? → `utils/udp_log_simulator.py`, `utils/inject_log_demo.py`
 - Need docs first? → `README.md`, then `FRONTEND.md` or `INSTALL.md`

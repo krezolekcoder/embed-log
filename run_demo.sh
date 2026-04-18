@@ -4,6 +4,7 @@ set -euo pipefail
 cd "$(dirname "$0")"
 
 OPEN_BROWSER=true
+SERVER_PID=""
 for arg in "$@"; do
   case "$arg" in
     --no-browser) OPEN_BROWSER=false ;;
@@ -67,14 +68,32 @@ fi
 cleanup() {
   echo ""
   echo "Stopping demo..."
+
   local pids
   pids=$(jobs -p || true)
-  if [ -n "$pids" ]; then
-    # Graceful stop first
-    echo "$pids" | xargs kill 2>/dev/null || true
-    sleep 0.6
-    # Force stop anything still running
-    echo "$pids" | xargs kill -9 2>/dev/null || true
+  [ -z "$pids" ] && return 0
+
+  # Ask all children to stop gracefully first.
+  echo "$pids" | xargs kill 2>/dev/null || true
+
+  # Give embed-log server extra time to handle SIGINT/SIGTERM and export session.html.
+  if [ -n "${SERVER_PID:-}" ] && kill -0 "$SERVER_PID" 2>/dev/null; then
+    for _ in 1 2 3 4 5 6 7 8 9 10; do
+      sleep 0.3
+      if ! kill -0 "$SERVER_PID" 2>/dev/null; then
+        break
+      fi
+    done
+  fi
+
+  # Short grace for remaining children.
+  sleep 0.4
+
+  # Force stop anything still running.
+  local still
+  still=$(jobs -p || true)
+  if [ -n "$still" ]; then
+    echo "$still" | xargs kill -9 2>/dev/null || true
   fi
 }
 trap cleanup EXIT INT TERM

@@ -139,7 +139,19 @@ Then run `embed-log ...` while that venv is activated.
 
 ---
 
-## 8) Legacy direct run from source (developer mode)
+## 8) Unit tests
+
+Run tests from the project virtualenv (recommended):
+
+```bash
+.venv/bin/python3 -m unittest discover -s tests -v
+```
+
+(or after activating `.venv`: `python3 -m unittest discover -s tests -v`)
+
+---
+
+## 9) Legacy direct run from source (developer mode)
 
 Still supported from project root:
 
