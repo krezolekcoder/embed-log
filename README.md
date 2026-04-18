@@ -162,8 +162,14 @@ All commands are run from the project root directory.
 ### Recommended: YAML config
 
 ```bash
-# packaged entrypoint
-embed-log run --config examples/embed-log.yml
+# create starter config
+embed-log init
+
+# validate config
+embed-log validate --config embed-log.yml
+
+# run
+embed-log run --config embed-log.yml
 
 # or plain python
 python3 backend/server.py run --config examples/embed-log.yml
@@ -191,6 +197,10 @@ Log files are written into a new per-run session directory under `logs.dir` / `-
 
 `logs/2026-04-17_23-02-25/<TAB>__<SOURCE>__2026-04-17_23-02-25.log`
 
+With `server.job_id` / `--job-id`, names include job id, e.g.:
+
+`logs/2026-04-17_23-02-25__GH-12345/<TAB>__<SOURCE>__2026-04-17_23-02-25__GH-12345.log`
+
 Each session directory also contains:
 - `manifest.json` (session metadata + file mapping)
 - `session.html` (auto-exported when the server gets SIGINT/SIGTERM, and when the last WS client disconnects)
@@ -204,7 +214,11 @@ server:
   host: 127.0.0.1
   ws_port: 8080
   ws_ui: frontend/index.html
+  app_name: embed-log
+  open_browser: false
   verbose: false
+  # optional: include CI/job id in session/log naming
+  # job_id: GH-12345
 
 logs:
   dir: logs/
@@ -240,6 +254,8 @@ tabs:
 ### All CLI options
 
 ```
+  init                    generate starter embed-log.yml
+  validate                validate YAML config (default: embed-log.yml)
   run                     optional subcommand alias (both styles work)
   --config, -c FILE       YAML config file (version: 1)
 
@@ -254,6 +270,9 @@ tabs:
   --host HOST             bind host for inject ports and WebSocket UI
   --ws-port PORT          HTTP/WebSocket port for the browser UI (0 = disabled)
   --ws-ui FILE            path to the UI HTML file served at GET /
+  --app-name NAME         app name shown in UI top-left bar
+  --open-browser          open default browser automatically when UI starts
+  --job-id ID             optional CI/job identifier included in naming
   -v, --verbose           prefix every line with [name][source]
   -h, --help
 ```

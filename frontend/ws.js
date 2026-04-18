@@ -66,6 +66,11 @@ function wsConnect() {
         // Config message — server tells us the tab/pane layout upfront.
         // Create all tabs before any log data arrives.
         if (msg.type === "config") {
+            if (typeof msg.app_name === "string" && msg.app_name.trim()) {
+                const appNameEl = document.querySelector("#toolbar .app-name");
+                if (appNameEl) appNameEl.textContent = msg.app_name.trim();
+            }
+
             const sessionId = msg.session?.id || null;
             const isSessionChange = currentSessionId && sessionId && currentSessionId !== sessionId;
             if (isSessionChange) {

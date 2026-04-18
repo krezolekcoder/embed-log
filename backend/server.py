@@ -23,6 +23,7 @@ import socket
 import subprocess
 import sys
 import threading
+import webbrowser
 from abc import ABC, abstractmethod
 from datetime import datetime
 from pathlib import Path
@@ -200,6 +201,8 @@ class WebSocketBroadcaster:
         session_info: Optional[dict] = None,
         sessions_root: Optional[str] = None,
         on_all_clients_disconnected: Optional[Callable[[], None]] = None,
+        open_browser: bool = False,
+        app_name: str = "embed-log",
     ):
         self._html_path = Path(html_path)
         self._host = host
@@ -216,6 +219,8 @@ class WebSocketBroadcaster:
         self._started = threading.Event()
         self._start_error: Optional[Exception] = None
         self._stop_async: Optional[asyncio.Event] = None
+        self._open_browser = open_browser
+        self._app_name = app_name
 
     def register_source(self, name: str, mgr) -> None:
         self._source_map[name] = mgr
@@ -283,6 +288,9 @@ class WebSocketBroadcaster:
         self._started.set()
         logging.info("UI ready at http://%s:%d/  (WebSocket: ws://%s:%d/ws)",
                      self._host, self._port, self._host, self._port)
+        if self._open_browser:
+            url = f"http://{self._host}:{self._port}/"
+            threading.Thread(target=lambda: webbrowser.open(url, new=2), daemon=True).start()
         await self._stop_async.wait()
         await runner.cleanup()
 
@@ -361,6 +369,7 @@ class WebSocketBroadcaster:
             "type": "config",
             "tabs": self._tabs,
             "session": self._session_info,
+            "app_name": self._app_name,
         }))
         self._clients.add(ws)
         if self._no_clients_handle is not None:
@@ -741,6 +750,9 @@ class LogServer:
         ws_port: int = 0,
         ws_ui: str = "frontend/index.html",
         config_path: Optional[str] = None,
+        job_id: Optional[str] = None,
+        open_browser: bool = False,
+        app_name: str = "embed-log",
     ):
         self._tabs = tabs
         self._session_id = session_id
@@ -751,10 +763,14 @@ class LogServer:
         self._html_path = self._session_dir / "session.html"
         self._config_path = config_path
         self._export_lock = threading.Lock()
+        self._job_id = job_id
+        self._app_name = app_name
 
         self._source_files = {s["name"]: str(s["log_file"]) for s in sources}
         self._session_info = {
             "id": self._session_id,
+            "job_id": self._job_id,
+            "app_name": self._app_name,
             "dir": str(self._session_dir),
             "manifest": f"/sessions/{self._session_id}/manifest.json",
             "html": f"/sessions/{self._session_id}/session.html",
@@ -777,6 +793,8 @@ class LogServer:
                 session_info=dict(self._session_info),
                 sessions_root=str(self._logs_root),
                 on_all_clients_disconnected=lambda: self.export_session_html("last_ws_disconnect"),
+                open_browser=open_browser,
+                app_name=app_name,
             )
 
         self._broadcaster = broadcaster
@@ -805,6 +823,7 @@ class LogServer:
             "session_id": self._session_id,
             "session_dir": str(self._session_dir),
             "started_at": self._started_at,
+            "job_id": self._job_id,
             "config_path": self._config_path,
             "tabs": self._tabs,
             "source_files": self._source_files,
@@ -911,11 +930,94 @@ def _parse_source(name: str, spec: str, default_baudrate: int) -> LogSource:
         )
 
 
+def _default_init_yaml() -> str:
+    return """version: 1
+
+server:
+  host: 127.0.0.1
+  ws_port: 8080
+  ws_ui: frontend/index.html
+  app_name: embed-log
+  open_browser: false
+  verbose: false
+  # optional: include CI/job id in session directory and log file names
+  # job_id: GH-12345
+
+logs:
+  dir: logs/
+
+# optional default UART baudrate for uart sources without per-source baudrate
+baudrate: 115200
+
+sources:
+  - name: DUT_UART
+    type: uart
+    port: /dev/ttyUSB0
+    inject_port: 5001
+    # optional: mirror raw RX lines to one or more read-only TCP forward ports
+    # forward_ports: [7001]
+
+  - name: SENSOR_A
+    type: udp
+    port: 6000
+    inject_port: 5002
+
+tabs:
+  - label: Devices
+    panes: [DUT_UART, SENSOR_A]
+"""
+
+
+def _run_init(argv: list[str]) -> int:
+    parser = argparse.ArgumentParser(
+        prog="embed-log init",
+        description="Create a starter embed-log YAML config.",
+    )
+    parser.add_argument("--output", "-o", default="embed-log.yml", help="output config path")
+    parser.add_argument("--force", action="store_true", help="overwrite if file already exists")
+    args = parser.parse_args(argv)
+
+    out = Path(args.output)
+    if out.exists() and not args.force:
+        parser.error(f"file already exists: {out}. Use --force to overwrite.")
+
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(_default_init_yaml(), encoding="utf-8")
+    print(f"Wrote config: {out}")
+    print(f"Next: embed-log validate --config {out}")
+    print(f"Then: embed-log run --config {out}")
+    return 0
+
+
+def _run_validate(argv: list[str]) -> int:
+    parser = argparse.ArgumentParser(
+        prog="embed-log validate",
+        description="Validate an embed-log YAML config.",
+    )
+    parser.add_argument("--config", "-c", default="embed-log.yml", help="config file path")
+    args = parser.parse_args(argv)
+
+    try:
+        cfg = load_config(args.config)
+    except ConfigError as exc:
+        print(f"Config INVALID: {exc}", file=sys.stderr)
+        return 2
+
+    print("Config OK")
+    print(f"  sources: {len(cfg.get('sources', []))}")
+    print(f"  injects: {len(cfg.get('injects', []))}")
+    print(f"  forwards: {len(cfg.get('forwards', []))}")
+    print(f"  tabs: {len(cfg.get('tabs', []))}")
+    return 0
+
+
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description="embed-log — log aggregator with WebSocket UI and TCP inject port.",
         epilog=(
             "Examples:\n"
+            "  embed-log init\n"
+            "  embed-log validate --config embed-log.yml\n"
             "  embed-log run --config embed-log.yml\n"
             "  python backend/server.py --config embed-log.yml\n"
             "  python backend/server.py --source DEVICE_A uart:/dev/ttyUSB0 --inject DEVICE_A 5001"
@@ -958,6 +1060,14 @@ def _build_parser() -> argparse.ArgumentParser:
                         help="HTTP/WebSocket port for the browser UI (0 = disabled)")
     parser.add_argument("--ws-ui", metavar="FILE", default=None, dest="ws_ui",
                         help="path to the UI HTML file served at GET /")
+    parser.add_argument("--app-name", metavar="NAME", default=None, dest="app_name",
+                        help="app name shown in UI top-left bar")
+    parser.add_argument("--open-browser", dest="open_browser", action="store_const", const=True, default=None,
+                        help="open default browser automatically when UI server starts")
+    parser.add_argument("--no-open-browser", dest="open_browser", action="store_const", const=False,
+                        help="do not open browser automatically (overrides config)")
+    parser.add_argument("--job-id", metavar="ID", default=None, dest="job_id",
+                        help="optional CI/job identifier included in session/log naming")
     parser.add_argument("-v", "--verbose", action="store_const", const=True, default=None,
                         help="verbose mode: print live lines to stdout, show INFO diagnostics, and prefix lines with [name][source]")
     return parser
@@ -965,6 +1075,11 @@ def _build_parser() -> argparse.ArgumentParser:
 
 def main(argv: Optional[list[str]] = None) -> int:
     argv = list(sys.argv[1:] if argv is None else argv)
+
+    if argv and argv[0] == "init":
+        return _run_init(argv[1:])
+    if argv and argv[0] == "validate":
+        return _run_validate(argv[1:])
     if argv and argv[0] == "run":
         argv = argv[1:]
 
@@ -988,7 +1103,10 @@ def main(argv: Optional[list[str]] = None) -> int:
     host = args.host if args.host is not None else cfg.get("host", "127.0.0.1")
     ws_port = args.ws_port if args.ws_port is not None else cfg.get("ws_port", 0)
     ws_ui = args.ws_ui if args.ws_ui is not None else cfg.get("ws_ui", "frontend/index.html")
+    app_name = args.app_name if args.app_name is not None else cfg.get("app_name", "embed-log")
     verbose = args.verbose if args.verbose is not None else cfg.get("verbose", False)
+    open_browser = args.open_browser if args.open_browser is not None else cfg.get("open_browser", False)
+    job_id = args.job_id if args.job_id is not None else cfg.get("job_id", None)
 
     logging.basicConfig(
         level=logging.INFO if verbose else logging.WARNING,
@@ -1051,7 +1169,9 @@ def main(argv: Optional[list[str]] = None) -> int:
         for pane in tab["panes"]:
             tab_label_by_source[pane] = tab["label"]
 
-    base_session_id = datetime.now().astimezone().strftime("%Y-%m-%d_%H-%M-%S_%f")[:-3]
+    base_session_id = datetime.now().astimezone().strftime("%Y-%m-%d_%H-%M-%S")
+    if job_id:
+        base_session_id = f"{base_session_id}__{_slug(job_id)}"
     session_id = base_session_id
     session_dir = logs_root / session_id
     i = 1
@@ -1084,6 +1204,9 @@ def main(argv: Optional[list[str]] = None) -> int:
         ws_port=ws_port,
         ws_ui=ws_ui,
         config_path=args.config,
+        job_id=job_id,
+        open_browser=open_browser,
+        app_name=app_name,
     ).run_forever()
     return 0
 

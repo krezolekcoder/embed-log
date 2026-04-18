@@ -3,6 +3,23 @@ set -euo pipefail
 
 cd "$(dirname "$0")"
 
+OPEN_BROWSER=true
+for arg in "$@"; do
+  case "$arg" in
+    --no-browser) OPEN_BROWSER=false ;;
+    --browser) OPEN_BROWSER=true ;;
+    -h|--help)
+      echo "Usage: ./run_demo.sh [--no-browser|--browser]"
+      exit 0
+      ;;
+    *)
+      echo "Unknown option: $arg"
+      echo "Usage: ./run_demo.sh [--no-browser|--browser]"
+      exit 1
+      ;;
+  esac
+done
+
 # Prefer project venv interpreter when available (pick one that actually works)
 for CAND in .venv/bin/python3.14 .venv/bin/python3 .venv/bin/python python3 python; do
   if [ -x "$CAND" ] || command -v "$CAND" >/dev/null 2>&1; then
@@ -162,7 +179,11 @@ if ! _free_port_if_stale tcp "$WS_PORT"; then
 fi
 
 echo "Starting embed-log server (YAML config) on port $WS_PORT..."
-"$PYTHON" backend/server.py run --config embed-log.demo.yml --ws-port "$WS_PORT" &
+if [ "$OPEN_BROWSER" = true ]; then
+  "$PYTHON" backend/server.py run --config embed-log.demo.yml --ws-port "$WS_PORT" &
+else
+  "$PYTHON" backend/server.py run --config embed-log.demo.yml --ws-port "$WS_PORT" --no-open-browser &
+fi
 SERVER_PID=$!
 
 sleep 1

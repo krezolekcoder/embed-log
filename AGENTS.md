@@ -16,7 +16,7 @@ Quick onboarding notes for future coding agents and humans working in `embed-log
    - inject-port stream clients (JSON)
    - optional forward-port clients (raw RX lines)
 3. **WebSocketBroadcaster** serves UI and pushes `rx`/`tx` events.
-4. **Session artifacts** are generated in each session directory:
+4. **Session artifacts** are generated in each session directory (optionally suffixed with CI `job_id`):
    - `manifest.json`
    - `session.html` (auto-export on last WS disconnect and on SIGINT/SIGTERM)
 5. **Frontend** renders tabs/panes, filters, settings, export/import, selection, splitters, refresh cache, and sessions popup.
@@ -27,11 +27,16 @@ Quick onboarding notes for future coding agents and humans working in `embed-log
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
-python3 backend/server.py run --config examples/embed-log.yml
+
+embed-log init
+embed-log validate --config embed-log.yml
+embed-log run --config embed-log.yml
 # or: ./run_demo.sh
 ```
 
 UI: usually `http://127.0.0.1:8080/` (demo script may auto-fallback to another free 808x port).
+Tip: `server.open_browser: true` (or `--open-browser`) opens the UI automatically on startup.
+Tip: `server.app_name` (or `--app-name`) customizes the top-left UI bar name.
 
 ## Key code locations
 

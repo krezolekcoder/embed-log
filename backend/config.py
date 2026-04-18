@@ -141,8 +141,14 @@ def load_config(path: str | Path) -> dict:
         out["ws_port"] = _as_int(server.get("ws_port"), "server.ws_port")
     if "ws_ui" in server:
         out["ws_ui"] = _require_str(server.get("ws_ui"), "server.ws_ui")
+    if "app_name" in server:
+        out["app_name"] = _require_str(server.get("app_name"), "server.app_name")
+    if "open_browser" in server:
+        out["open_browser"] = bool(server.get("open_browser"))
     if "verbose" in server:
         out["verbose"] = bool(server.get("verbose"))
+    if "job_id" in server:
+        out["job_id"] = _require_str(server.get("job_id"), "server.job_id")
 
     if "dir" in logs:
         out["log_dir"] = _require_str(logs.get("dir"), "logs.dir")
