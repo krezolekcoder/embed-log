@@ -27,6 +27,8 @@ import { onLineClick } from './lines.js';
 
     const span = document.createElement("span");
     span.className = "clip-count";
+    span.title = "Peek clipboard buffer";
+    span.addEventListener("click", e => { e.stopPropagation(); _toggleClipPeek(); });
     ind.appendChild(span);
 
     const sep = document.createElement("span");
@@ -34,12 +36,35 @@ import { onLineClick } from './lines.js';
     sep.textContent = "·";
     ind.appendChild(sep);
 
+    const peekBtn = document.createElement("button");
+    peekBtn.id          = "clip-peek-btn";
+    peekBtn.className   = "clip-peek";
+    peekBtn.textContent = "Peek";
+    peekBtn.title       = "Show clipboard buffer";
+    peekBtn.addEventListener("click", e => { e.stopPropagation(); _toggleClipPeek(); });
+    ind.appendChild(peekBtn);
+
     const clearBtn = document.createElement("button");
     clearBtn.className   = "clip-clear";
     clearBtn.textContent = "Clear";
     clearBtn.title       = "Clear clipboard buffer";
     clearBtn.addEventListener("click", _clearClipBuffer);
     ind.appendChild(clearBtn);
+
+    const menu = document.createElement("div");
+    menu.id = "clip-peek-menu";
+    menu.innerHTML = `
+        <div class="clip-peek-head">
+            <span>Clipboard buffer</span>
+            <button type="button" class="clip-peek-copyall" title="Copy full buffered clipboard content">Copy all</button>
+        </div>
+        <pre class="clip-peek-body"></pre>
+    `;
+    menu.querySelector(".clip-peek-copyall")?.addEventListener("click", e => {
+        e.stopPropagation();
+        _copyClipBuffer();
+    });
+    document.body.appendChild(menu);
 
     wsStatus.before(ind);
 })();
@@ -89,6 +114,14 @@ function _clearOtherSelections(keepPane) {
     });
 }
 
+function _clearAllSelections() {
+    PANES.forEach(id => {
+        if (!state.selected[id]?.size) return;
+        state.selected[id] = new Set();
+        _applySelection(id);
+    });
+}
+
 // ---------------------------------------------------------------------------
 // Clipboard accumulation buffer
 // Each copy appends to the buffer (3 blank lines between groups).
@@ -105,12 +138,69 @@ function _updateClipIndicator() {
     el.style.display = _clipLineCount > 0 ? "" : "none";
     const span = el.querySelector(".clip-count");
     if (span) span.textContent = `📋 ${_clipLineCount} lines`;
+    const peekBtn = document.getElementById("clip-peek-btn");
+    if (peekBtn) peekBtn.disabled = _clipLineCount <= 0;
 }
 
 function _clearClipBuffer() {
     _clipBuffer    = "";
     _clipLineCount = 0;
     _updateClipIndicator();
+    _renderClipPeek();
+    _closeClipPeek();
+}
+
+function _clipPeekMenuEl() { return document.getElementById("clip-peek-menu"); }
+
+function _isClipPeekOpen() {
+    return _clipPeekMenuEl()?.classList.contains("open") ?? false;
+}
+
+function _renderClipPeek() {
+    const menu = _clipPeekMenuEl();
+    if (!menu) return;
+    const body = menu.querySelector(".clip-peek-body");
+    if (!body) return;
+    body.textContent = _clipBuffer || "(Clipboard buffer is empty)";
+    const copyAllBtn = menu.querySelector(".clip-peek-copyall");
+    if (copyAllBtn) copyAllBtn.disabled = _clipLineCount <= 0;
+}
+
+function _copyClipBuffer() {
+    if (!_clipBuffer) return;
+    const menu = _clipPeekMenuEl();
+    const btn = menu?.querySelector(".clip-peek-copyall");
+    navigator.clipboard.writeText(_clipBuffer).then(() => {
+        if (!btn) return;
+        const prev = btn.textContent;
+        btn.textContent = "Copied";
+        btn.disabled = true;
+        setTimeout(() => {
+            btn.textContent = prev;
+            btn.disabled = _clipLineCount <= 0;
+        }, 900);
+    }).catch(() => {});
+}
+
+function _openClipPeek() {
+    if (_clipLineCount <= 0) return;
+    const menu = _clipPeekMenuEl();
+    const ind = document.getElementById("clip-indicator");
+    if (!menu || !ind) return;
+    _renderClipPeek();
+    const rect = ind.getBoundingClientRect();
+    menu.style.left = `${Math.max(8, rect.left)}px`;
+    menu.style.top = `${rect.bottom + 6}px`;
+    menu.classList.add("open");
+}
+
+function _closeClipPeek() {
+    _clipPeekMenuEl()?.classList.remove("open");
+}
+
+function _toggleClipPeek() {
+    if (_isClipPeekOpen()) _closeClipPeek();
+    else _openClipPeek();
 }
 
 // ---------------------------------------------------------------------------
@@ -131,6 +221,9 @@ function _copySelected(paneId) {
     _clipBuffer    += (isFirst ? "" : "\n\n\n\n") + text;
     _clipLineCount += sel.size;
 
+    // Natural UX: once copied, selection highlight should disappear.
+    _clearAllSelections();
+
     navigator.clipboard.writeText(_clipBuffer).then(() => {
         const btn = document.getElementById("copy-" + paneId);
         if (!btn) return;
@@ -140,6 +233,7 @@ function _copySelected(paneId) {
             : `Appended! (${_clipLineCount} total)`;
         setTimeout(() => { btn.textContent = prev; }, 1400);
         _updateClipIndicator();
+        _renderClipPeek();
     }).catch(() => {});
 }
 
@@ -206,10 +300,23 @@ document.addEventListener("pointerup", () => { _drag = null; });
 // After a drag the browser still fires a click event on the log-line.
 // Intercept it in the capture phase so onLineClick isn't called a second time.
 document.addEventListener("click", e => {
-    if (!_suppressClick) return;
-    if (!e.target.closest(".log-line")) return;
-    _suppressClick = false;
-    e.stopPropagation();
+    if (_suppressClick) {
+        if (e.target.closest(".log-line")) {
+            _suppressClick = false;
+            e.stopPropagation();
+            return;
+        }
+        _suppressClick = false;
+    }
+
+    const inClipUi = e.target.closest("#clip-indicator") || e.target.closest("#clip-peek-menu");
+    if (_isClipPeekOpen() && !inClipUi) _closeClipPeek();
+
+    // Natural UX: clicking elsewhere dismisses line selection highlight.
+    // Keep selection intact when interacting with copy/clipboard controls.
+    if (!PANES.some(id => state.selected[id]?.size > 0)) return;
+    if (e.target.closest(".copy-btn") || inClipUi) return;
+    _clearAllSelections();
 }, true);
 
 // ---------------------------------------------------------------------------
@@ -222,10 +329,10 @@ document.addEventListener("keydown", e => {
         return;
     }
     if (e.key === "Escape") {
-        PANES.forEach(id => {
-            if (!state.selected[id].size) return;
-            state.selected[id] = new Set();
-            _applySelection(id);
-        });
+        if (_isClipPeekOpen()) {
+            _closeClipPeek();
+            return;
+        }
+        _clearAllSelections();
     }
 });
