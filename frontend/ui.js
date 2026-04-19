@@ -22,23 +22,15 @@ btnTs.addEventListener("click", () => {
 });
 
 // ---------------------------------------------------------------------------
-// Toolbar — font size
-// ---------------------------------------------------------------------------
-document.getElementById("btn-font-dec").addEventListener("click", () => {
-    state.fontSize = Math.max(9, state.fontSize - 1);
-    document.documentElement.style.setProperty("--font-size", state.fontSize + "px");
-});
-document.getElementById("btn-font-inc").addEventListener("click", () => {
-    state.fontSize = Math.min(24, state.fontSize + 1);
-    document.documentElement.style.setProperty("--font-size", state.fontSize + "px");
-});
-
-// ---------------------------------------------------------------------------
-// Toolbar — clear cached session (localStorage restore cache)
+// Settings panel — clear cached session (localStorage restore cache)
 // ---------------------------------------------------------------------------
 (function () {
-    const clearBtn = document.getElementById("btn-clear");
-    if (!clearBtn || !clearBtn.parentElement) return;
+    const panel = document.getElementById("settings-panel");
+    if (!panel) return;
+
+    const sep = document.createElement("span");
+    sep.className = "set-sep";
+    sep.textContent = "|";
 
     const btn = document.createElement("button");
     btn.id = "btn-clear-cache";
@@ -56,15 +48,20 @@ document.getElementById("btn-font-inc").addEventListener("click", () => {
         }, 1200);
     });
 
-    clearBtn.after(btn);
+    panel.appendChild(sep);
+    panel.appendChild(btn);
 })();
 
 // ---------------------------------------------------------------------------
-// Toolbar — sessions list popup (open session.html directly)
+// Settings panel — sessions list popup (open session.html directly)
 // ---------------------------------------------------------------------------
 (function () {
-    const exportBtn = document.getElementById("btn-export");
-    if (!exportBtn || !exportBtn.parentElement) return;
+    const panel = document.getElementById("settings-panel");
+    if (!panel) return;
+
+    const sep = document.createElement("span");
+    sep.className = "set-sep";
+    sep.textContent = "|";
 
     const btn = document.createElement("button");
     btn.id = "btn-sessions";
@@ -76,8 +73,9 @@ document.getElementById("btn-font-inc").addEventListener("click", () => {
     btnCurrent.title = "Open current session HTML";
     btnCurrent.textContent = "Current HTML";
 
-    exportBtn.after(btnCurrent);
-    btnCurrent.after(btn);
+    panel.appendChild(sep);
+    panel.appendChild(btnCurrent);
+    panel.appendChild(btn);
 
     const menu = document.createElement("div");
     menu.id = "sessions-menu";
@@ -226,25 +224,29 @@ btnSync.addEventListener("click", () => {
 });
 
 // ---------------------------------------------------------------------------
-// Toolbar — theme toggle (single button: shows target-mode icon)
-//   light (Whitesand) → button shows 🌙  (click to go dark)
-//   dark  (Mocha)     → button shows ☀  (click to go light)
+// Toolbar — theme toggle (light/dark quick switch)
+// Detailed palette selection lives in the settings panel.
 // ---------------------------------------------------------------------------
 (function () {
     const btn = document.getElementById("btn-theme");
+    const mgr = window.__embedLogTheme;
 
-    function setTheme(theme) {
-        document.documentElement.setAttribute("data-theme", theme);
-        btn.textContent = theme === "whitesand" ? "🌙" : "☀";
+    function syncIcon() {
+        const isDark = mgr?.isDark ? mgr.isDark() : (document.documentElement.getAttribute("data-theme") === "");
+        btn.textContent = isDark ? "☀" : "🌙";
     }
 
     btn.addEventListener("click", () => {
-        const isDark = document.documentElement.getAttribute("data-theme") === "";
-        setTheme(isDark ? "whitesand" : "");
+        if (mgr?.toggle) mgr.toggle();
+        else {
+            const isDark = document.documentElement.getAttribute("data-theme") === "";
+            document.documentElement.setAttribute("data-theme", isDark ? "whitesand" : "");
+        }
+        syncIcon();
     });
 
-    // Sync icon with the initial data-theme set in the HTML
-    setTheme(document.documentElement.getAttribute("data-theme") || "");
+    mgr?.onChange?.(syncIcon);
+    syncIcon();
 })();
 
 // ---------------------------------------------------------------------------

@@ -1,6 +1,10 @@
 // ---------------------------------------------------------------------------
-// Temporary palette + font explorer
-// Three toolbar selects: dark themes · light themes · fonts
+// Theme manager
+// - Quick toolbar toggle: light/dark
+// - Detailed palette choice (dark + light) in settings panel
+// Defaults:
+//   light mode -> Whitesand
+//   dark mode  -> One Dark
 // ---------------------------------------------------------------------------
 
 const DARK_PALETTES = [
@@ -33,19 +37,17 @@ const LIGHT_PALETTES = [
       vars: { "--bg":"#fbf1c7","--panel":"#f2e5bc","--header":"#ebdbb2","--text":"#3c3836","--accent":"#b57614","--border":"#d5c4a1","--selection":"#ebdbb2","--input-bg":"#ebdbb2","--ansi-0":"#928374","--ansi-1":"#9d0006","--ansi-2":"#79740e","--ansi-3":"#b57614","--ansi-4":"#076678","--ansi-5":"#8f3f71","--ansi-6":"#427b58","--ansi-7":"#3c3836" } },
 ];
 
-const FONTS = [
-    { key: "jetbrains",   label: "JetBrains Mono",  family: "'JetBrains Mono', ui-monospace, monospace",  google: null },
-    { key: "fira-code",   label: "Fira Code",        family: "'Fira Code', ui-monospace, monospace",       google: "Fira+Code:wght@400;700" },
-    { key: "source-code", label: "Source Code Pro",  family: "'Source Code Pro', ui-monospace, monospace", google: "Source+Code+Pro:wght@400;700" },
-    { key: "roboto-mono", label: "Roboto Mono",      family: "'Roboto Mono', ui-monospace, monospace",     google: "Roboto+Mono:wght@400;700" },
-    { key: "inconsolata", label: "Inconsolata",      family: "'Inconsolata', ui-monospace, monospace",     google: "Inconsolata:wght@400;700" },
-    { key: "ubuntu-mono", label: "Ubuntu Mono",      family: "'Ubuntu Mono', ui-monospace, monospace",     google: "Ubuntu+Mono:wght@400;700" },
-    { key: "space-mono",  label: "Space Mono",       family: "'Space Mono', ui-monospace, monospace",      google: "Space+Mono:wght@400;700" },
-];
+const DEFAULT_LIGHT = "whitesand";
+const DEFAULT_DARK = "one-dark";
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
+let _mode = document.documentElement.getAttribute("data-theme") === "whitesand" ? "light" : "dark";
+let _lightKey = DEFAULT_LIGHT;
+let _darkKey = DEFAULT_DARK;
+const _listeners = new Set();
+
+function _find(list, key) {
+    return list.find(p => p.key === key) || list[0];
+}
 
 function _applyVars(vars) {
     const root = document.documentElement;
@@ -54,72 +56,106 @@ function _applyVars(vars) {
     }
 }
 
-function _loadGoogleFont(font) {
-    if (!font.google) return;
-    const id = "gf-" + font.key;
-    if (document.getElementById(id)) return;
-    const link = document.createElement("link");
-    link.id   = id;
-    link.rel  = "stylesheet";
-    link.href = "https://fonts.googleapis.com/css2?family=" + font.google + "&display=swap";
-    document.head.appendChild(link);
+function _emit() {
+    _listeners.forEach(fn => {
+        try { fn(); } catch (_) {}
+    });
 }
 
-// ---------------------------------------------------------------------------
-// Inject selects into toolbar
-// ---------------------------------------------------------------------------
+function _applyCurrent() {
+    const palette = _mode === "dark"
+        ? _find(DARK_PALETTES, _darkKey)
+        : _find(LIGHT_PALETTES, _lightKey);
+    _applyVars(palette.vars);
+    document.documentElement.setAttribute("data-theme", _mode === "light" ? "whitesand" : "");
+    _emit();
+}
 
-(function () {
-    const toolbar   = document.getElementById("toolbar");
-    const themeBtn  = document.getElementById("btn-theme");
+function _setMode(mode) {
+    _mode = mode === "dark" ? "dark" : "light";
+    _applyCurrent();
+}
 
-    function makeSep() {
-        const d = document.createElement("div");
-        d.className = "sep";
-        return d;
-    }
+function _setDarkPalette(key) {
+    _darkKey = _find(DARK_PALETTES, key).key;
+    if (_mode === "dark") _applyCurrent();
+}
 
-    function makeSelect(placeholder, items) {
-        const sel = document.createElement("select");
-        const ph  = document.createElement("option");
-        ph.value    = "";
-        ph.textContent = placeholder;
-        ph.disabled = true;
-        ph.selected = true;
-        sel.appendChild(ph);
-        for (const item of items) {
-            const opt = document.createElement("option");
-            opt.value       = item.key;
-            opt.textContent = item.label;
-            sel.appendChild(opt);
-        }
-        return sel;
-    }
+function _setLightPalette(key) {
+    _lightKey = _find(LIGHT_PALETTES, key).key;
+    if (_mode === "light") _applyCurrent();
+}
 
-    const selDark  = makeSelect("🌑 Dark…",   DARK_PALETTES);
-    const selLight = makeSelect("🌤 Light…",  LIGHT_PALETTES);
-    const selFont  = makeSelect("Aa Font…",   FONTS);
+function _toggle() {
+    _setMode(_mode === "dark" ? "light" : "dark");
+}
 
-    themeBtn.after(makeSep(), selDark, selLight, selFont);
+window.__embedLogTheme = {
+    toggle: _toggle,
+    isDark: () => _mode === "dark",
+    mode: () => _mode,
+    onChange: fn => {
+        if (typeof fn !== "function") return () => {};
+        _listeners.add(fn);
+        return () => _listeners.delete(fn);
+    },
+    setDarkPalette: _setDarkPalette,
+    setLightPalette: _setLightPalette,
+};
 
-    selDark.addEventListener("change", () => {
-        const p = DARK_PALETTES.find(t => t.key === selDark.value);
-        if (!p) return;
-        _applyVars(p.vars);
-        selLight.selectedIndex = 0;
+function _makeSelect(items, selectedKey) {
+    const sel = document.createElement("select");
+    items.forEach(item => {
+        const opt = document.createElement("option");
+        opt.value = item.key;
+        opt.textContent = item.label;
+        sel.appendChild(opt);
     });
+    sel.value = selectedKey;
+    return sel;
+}
 
-    selLight.addEventListener("change", () => {
-        const p = LIGHT_PALETTES.find(t => t.key === selLight.value);
-        if (!p) return;
-        _applyVars(p.vars);
-        selDark.selectedIndex = 0;
-    });
+function _mountSettingsControls() {
+    const panel = document.getElementById("settings-panel");
+    if (!panel) return false;
+    if (document.getElementById("set-theme-light")) return true;
 
-    selFont.addEventListener("change", () => {
-        const f = FONTS.find(f => f.key === selFont.value);
-        if (!f) return;
-        _loadGoogleFont(f);
-        document.documentElement.style.setProperty("--font-family", f.family);
-    });
+    const sep1 = document.createElement("span");
+    sep1.className = "set-sep";
+    sep1.textContent = "|";
+    panel.appendChild(sep1);
+
+    const lblLight = document.createElement("span");
+    lblLight.className = "set-label";
+    lblLight.textContent = "Light theme:";
+    panel.appendChild(lblLight);
+
+    const selLight = _makeSelect(LIGHT_PALETTES, _lightKey);
+    selLight.id = "set-theme-light";
+    selLight.addEventListener("change", () => _setLightPalette(selLight.value));
+    panel.appendChild(selLight);
+
+    const sep2 = document.createElement("span");
+    sep2.className = "set-sep";
+    sep2.textContent = "|";
+    panel.appendChild(sep2);
+
+    const lblDark = document.createElement("span");
+    lblDark.className = "set-label";
+    lblDark.textContent = "Dark theme:";
+    panel.appendChild(lblDark);
+
+    const selDark = _makeSelect(DARK_PALETTES, _darkKey);
+    selDark.id = "set-theme-dark";
+    selDark.addEventListener("change", () => _setDarkPalette(selDark.value));
+    panel.appendChild(selDark);
+
+    return true;
+}
+
+(function _deferMount() {
+    if (_mountSettingsControls()) return;
+    setTimeout(_deferMount, 50);
 })();
+
+_applyCurrent();

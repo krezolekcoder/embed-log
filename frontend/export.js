@@ -178,9 +178,6 @@ async function exportToHtml() {
     <button id="btn-ts"       title="Toggle timestamps" class="active">Time</button>
     <button id="btn-sync"     title="Click a line to sync the other pane to the same timestamp" class="active">Sync</button>
     <div class="sep"></div>
-    <button id="btn-font-dec" title="Decrease font size">A-</button>
-    <button id="btn-font-inc" title="Increase font size">A+</button>
-    <div class="sep"></div>
     <button id="btn-clear"    title="Clear all panes">Clear</button>
     <button id="btn-export"   title="Export current tab to a self-contained HTML file">Export</button>
     <div class="sep"></div>

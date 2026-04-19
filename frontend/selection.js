@@ -14,6 +14,9 @@ import { onLineClick } from './lines.js';
 // Copy via the floating "Copy N lines" button, Ctrl/Cmd+C, or Escape to clear.
 // ---------------------------------------------------------------------------
 
+let _copyMode = "raw"; // "raw" | "compact"
+const _selectionComments = Object.create(null); // paneId -> comment text
+
 // ---------------------------------------------------------------------------
 // Inject clipboard indicator into toolbar (before ws-status)
 // ---------------------------------------------------------------------------
@@ -75,11 +78,42 @@ import { onLineClick } from './lines.js';
 export function _selectionSetupPane(id) {
     const body = document.querySelector(`#pane-${id} .pane-body`);
     if (!body) return;
-    const btn = document.createElement("button");
-    btn.className = "copy-btn";
-    btn.id        = "copy-" + id;
-    btn.addEventListener("click", e => { e.stopPropagation(); _copySelected(id); });
-    body.appendChild(btn);
+
+    const wrap = document.createElement("div");
+    wrap.className = "copy-actions";
+    wrap.id = "copy-actions-" + id;
+
+    const copyBtn = document.createElement("button");
+    copyBtn.className = "copy-btn";
+    copyBtn.id        = "copy-" + id;
+    copyBtn.addEventListener("click", e => { e.stopPropagation(); _copySelected(id); });
+
+    const fmtBtn = document.createElement("button");
+    fmtBtn.className = "copy-btn copy-mode-btn";
+    fmtBtn.id        = "copy-mode-" + id;
+    fmtBtn.title     = "Toggle copy mode (Raw/Compact)";
+    fmtBtn.addEventListener("click", e => {
+        e.stopPropagation();
+        _copyMode = _copyMode === "raw" ? "compact" : "raw";
+        _syncAllCopyButtons();
+    });
+
+    const cmtBtn = document.createElement("button");
+    cmtBtn.className = "copy-btn copy-comment-btn";
+    cmtBtn.id        = "copy-comment-" + id;
+    cmtBtn.textContent = "Comment";
+    cmtBtn.title = "Add a quick context comment for this selection";
+    cmtBtn.addEventListener("click", e => {
+        e.stopPropagation();
+        _openCommentEditor(id, cmtBtn);
+    });
+
+    wrap.appendChild(copyBtn);
+    wrap.appendChild(fmtBtn);
+    wrap.appendChild(cmtBtn);
+    body.appendChild(wrap);
+
+    if (!(_selectionComments[id])) _selectionComments[id] = "";
 }
 PANES.forEach(_selectionSetupPane);
 
@@ -89,12 +123,29 @@ PANES.forEach(_selectionSetupPane);
 function _stripHtml(str) { return str.replace(/<[^>]+>/g, ""); }
 
 function _syncCopyBtn(paneId) {
-    const btn   = document.getElementById("copy-" + paneId);
-    if (!btn) return;
+    const wrap = document.getElementById("copy-actions-" + paneId);
+    const copyBtn = document.getElementById("copy-" + paneId);
+    const modeBtn = document.getElementById("copy-mode-" + paneId);
+    const commentBtn = document.getElementById("copy-comment-" + paneId);
+    if (!wrap || !copyBtn || !modeBtn || !commentBtn) return;
+
     const count = state.selected[paneId].size;
-    btn.classList.toggle("visible", count > 0);
-    if (count > 0)
-        btn.textContent = `Copy ${count} line${count === 1 ? "" : "s"}`;
+    const visible = count > 0;
+    wrap.classList.toggle("visible", visible);
+    copyBtn.classList.toggle("visible", visible);
+    modeBtn.classList.toggle("visible", visible);
+    commentBtn.classList.toggle("visible", visible);
+
+    if (visible) {
+        copyBtn.textContent = `Copy ${count} line${count === 1 ? "" : "s"}`;
+        modeBtn.textContent = _copyMode === "raw" ? "Raw" : "Compact";
+        const hasComment = !!(_selectionComments[paneId] || "").trim();
+        commentBtn.textContent = hasComment ? "Comment ✓" : "Comment";
+    }
+}
+
+function _syncAllCopyButtons() {
+    PANES.forEach(_syncCopyBtn);
 }
 
 function _applySelection(paneId) {
@@ -116,10 +167,131 @@ function _clearOtherSelections(keepPane) {
 
 function _clearAllSelections() {
     PANES.forEach(id => {
-        if (!state.selected[id]?.size) return;
-        state.selected[id] = new Set();
-        _applySelection(id);
+        if (state.selected[id]?.size) {
+            state.selected[id] = new Set();
+            _applySelection(id);
+        }
+        if (_selectionComments[id]) _selectionComments[id] = "";
+        _syncCopyBtn(id);
     });
+    _closeCommentEditor();
+}
+
+function _escapeRe(text) {
+    return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function _decodeEntities(text) {
+    const ta = document.createElement("textarea");
+    ta.innerHTML = text;
+    return ta.value;
+}
+
+function _linePlain(line) {
+    return _decodeEntities(_stripHtml(line?.html || "")).replace(/\s+/g, " ").trim();
+}
+
+function _lineRaw(line) {
+    return `${line.ts}  ${_linePlain(line)}`;
+}
+
+function _lineCompact(line, paneId) {
+    let text = _linePlain(line)
+        .replace(/^\[\d{4}-\d{2}-\d{2}T[^\]]+\]\s*/, "")
+        .replace(new RegExp(`^\\[${_escapeRe(paneId)}\\]\\s*`), "");
+    return `${line.ts.slice(6)}  ${text}`.trim();
+}
+
+function _commentPrefix(paneId) {
+    const raw = (_selectionComments[paneId] || "").trim();
+    if (!raw) return "";
+    return raw.split(/\r?\n/).map(l => `# ${l}`).join("\n") + "\n";
+}
+
+function _formatSelectionBlock(paneId, indices) {
+    const lines = state.rawLines[paneId];
+    if (_copyMode === "compact") {
+        const body = indices
+            .map(i => lines[i])
+            .filter(Boolean)
+            .map(line => _lineCompact(line, paneId))
+            .join("\n");
+        return `${_commentPrefix(paneId)}[${paneId}]\n${body}`;
+    }
+
+    const body = indices
+        .map(i => lines[i])
+        .filter(Boolean)
+        .map(_lineRaw)
+        .join("\n");
+    return `${_commentPrefix(paneId)}${body}`;
+}
+
+function _commentMenuEl() { return document.getElementById("selection-comment-menu"); }
+
+function _ensureCommentMenu() {
+    if (_commentMenuEl()) return;
+    const menu = document.createElement("div");
+    menu.id = "selection-comment-menu";
+    menu.innerHTML = `
+        <div class="selection-comment-head">Selection comment</div>
+        <textarea class="selection-comment-input" rows="3" placeholder="Optional context for this copied selection..."></textarea>
+        <div class="selection-comment-actions">
+            <button type="button" class="selection-comment-save">Save</button>
+            <button type="button" class="selection-comment-clear">Clear</button>
+            <button type="button" class="selection-comment-cancel">Close</button>
+        </div>
+    `;
+    document.body.appendChild(menu);
+
+    menu.querySelector(".selection-comment-save")?.addEventListener("click", e => {
+        e.stopPropagation();
+        const paneId = menu.dataset.pane || "";
+        const input = menu.querySelector(".selection-comment-input");
+        if (!paneId || !input) return;
+        _selectionComments[paneId] = input.value.trim();
+        _syncCopyBtn(paneId);
+        _closeCommentEditor();
+    });
+
+    menu.querySelector(".selection-comment-clear")?.addEventListener("click", e => {
+        e.stopPropagation();
+        const paneId = menu.dataset.pane || "";
+        if (paneId) {
+            _selectionComments[paneId] = "";
+            _syncCopyBtn(paneId);
+        }
+        const input = menu.querySelector(".selection-comment-input");
+        if (input) input.value = "";
+    });
+
+    menu.querySelector(".selection-comment-cancel")?.addEventListener("click", e => {
+        e.stopPropagation();
+        _closeCommentEditor();
+    });
+}
+
+function _isCommentEditorOpen() {
+    return _commentMenuEl()?.classList.contains("open") ?? false;
+}
+
+function _openCommentEditor(paneId, anchorEl) {
+    _ensureCommentMenu();
+    const menu = _commentMenuEl();
+    if (!menu || !anchorEl) return;
+    menu.dataset.pane = paneId;
+    const input = menu.querySelector(".selection-comment-input");
+    if (input) input.value = _selectionComments[paneId] || "";
+
+    const rect = anchorEl.getBoundingClientRect();
+    menu.style.left = `${Math.max(8, rect.left - 220)}px`;
+    menu.style.top = `${rect.bottom + 6}px`;
+    menu.classList.add("open");
+    input?.focus();
+}
+
+function _closeCommentEditor() {
+    _commentMenuEl()?.classList.remove("open");
 }
 
 // ---------------------------------------------------------------------------
@@ -209,20 +381,22 @@ function _toggleClipPeek() {
 function _copySelected(paneId) {
     const sel = state.selected[paneId];
     if (!sel.size) return;
-    const lines = state.rawLines[paneId];
-    const text  = Array.from(sel)
-        .sort((a, b) => a - b)
-        .map(i => lines[i] ? `${lines[i].ts}  ${_stripHtml(lines[i].html)}` : null)
-        .filter(Boolean)
-        .join("\n");
+
+    const indices = Array.from(sel).sort((a, b) => a - b);
+    const text = _formatSelectionBlock(paneId, indices);
     if (!text) return;
 
     const isFirst  = _clipBuffer === "";
     _clipBuffer    += (isFirst ? "" : "\n\n\n\n") + text;
     _clipLineCount += sel.size;
 
+    // comment is scoped to this one copied selection
+    _selectionComments[paneId] = "";
+    _closeCommentEditor();
+
     // Natural UX: once copied, selection highlight should disappear.
     _clearAllSelections();
+    _syncCopyBtn(paneId);
 
     navigator.clipboard.writeText(_clipBuffer).then(() => {
         const btn = document.getElementById("copy-" + paneId);
@@ -310,12 +484,14 @@ document.addEventListener("click", e => {
     }
 
     const inClipUi = e.target.closest("#clip-indicator") || e.target.closest("#clip-peek-menu");
+    const inSelectionUi = e.target.closest(".copy-actions") || e.target.closest("#selection-comment-menu");
     if (_isClipPeekOpen() && !inClipUi) _closeClipPeek();
+    if (_isCommentEditorOpen() && !inSelectionUi) _closeCommentEditor();
 
     // Natural UX: clicking elsewhere dismisses line selection highlight.
-    // Keep selection intact when interacting with copy/clipboard controls.
+    // Keep selection intact when interacting with copy/clipboard/comment controls.
     if (!PANES.some(id => state.selected[id]?.size > 0)) return;
-    if (e.target.closest(".copy-btn") || inClipUi) return;
+    if (inClipUi || inSelectionUi) return;
     _clearAllSelections();
 }, true);
 
@@ -329,6 +505,10 @@ document.addEventListener("keydown", e => {
         return;
     }
     if (e.key === "Escape") {
+        if (_isCommentEditorOpen()) {
+            _closeCommentEditor();
+            return;
+        }
         if (_isClipPeekOpen()) {
             _closeClipPeek();
             return;

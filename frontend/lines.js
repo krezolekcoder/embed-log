@@ -145,8 +145,11 @@ export function clearPane(paneId) {
     highlightLine(paneId, null);
     state.atBottom[paneId] = true;
     updateJumpBtn(paneId);
-    // Hide the copy button if selection.js has added one
+    // Hide copy-selection actions if selection.js has added them
     document.getElementById("copy-" + paneId)?.classList.remove("visible");
+    document.getElementById("copy-mode-" + paneId)?.classList.remove("visible");
+    document.getElementById("copy-comment-" + paneId)?.classList.remove("visible");
+    document.getElementById("copy-actions-" + paneId)?.classList.remove("visible");
     window.__embedLogSchedulePersist?.();
 }
 

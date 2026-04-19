@@ -1,28 +1,28 @@
 /* ============================================================
    embed-log — stylesheet
-   Themes: Whitesand (warm light, default) · Dracula (dark)
+   Themes: Whitesand (warm light, default) · One Dark (dark default)
    ============================================================ */
 
 :root {
-    /* --- Dracula (dark) --- */
-    --bg:        #282a36;
-    --panel:     #21222c;
-    --header:    #21222c;
-    --text:      #f8f8f2;
-    --accent:    #bd93f9;
-    --border:    #44475a;
-    --selection: #44475a;
-    --input-bg:  #21222c;
+    /* --- One Dark (dark) --- */
+    --bg:        #282c34;
+    --panel:     #21252b;
+    --header:    #21252b;
+    --text:      #abb2bf;
+    --accent:    #61afef;
+    --border:    #3e4451;
+    --selection: #3e4451;
+    --input-bg:  #21252b;
 
     /* ANSI */
-    --ansi-0: #6272a4;   /* dim / timestamp (Dracula comment) */
-    --ansi-1: #ff5555;   /* red   */
-    --ansi-2: #50fa7b;   /* green */
-    --ansi-3: #f1fa8c;   /* yellow */
-    --ansi-4: #6272a4;   /* blue  */
-    --ansi-5: #bd93f9;   /* purple */
-    --ansi-6: #8be9fd;   /* cyan  */
-    --ansi-7: #f8f8f2;   /* white */
+    --ansi-0: #5c6370;
+    --ansi-1: #e06c75;
+    --ansi-2: #98c379;
+    --ansi-3: #e5c07b;
+    --ansi-4: #61afef;
+    --ansi-5: #c678dd;
+    --ansi-6: #56b6c2;
+    --ansi-7: #abb2bf;
 
     --font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco,
                    Consolas, 'Courier New', monospace;
@@ -126,6 +126,7 @@ button.active { background: var(--selection); border-color: var(--accent); color
     border-bottom: 1px solid var(--border);
     flex-shrink: 0;
     font-size: 12px;
+    flex-wrap: wrap;
 }
 #settings-panel.open { display: flex; }
 #settings-panel .set-sep  { color: var(--border); margin: 0 4px; }
@@ -485,18 +486,74 @@ button.active { background: var(--selection); border-color: var(--accent); color
     line-height: 1.45;
 }
 
+/* Selection comment popup */
+#selection-comment-menu {
+    position: fixed;
+    z-index: 1110;
+    width: min(420px, 80vw);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--panel);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.25);
+    padding: 8px;
+    display: none;
+}
+#selection-comment-menu.open { display: block; }
+#selection-comment-menu .selection-comment-head {
+    color: var(--accent);
+    font-size: 12px;
+    margin-bottom: 6px;
+}
+#selection-comment-menu .selection-comment-input {
+    width: 100%;
+    resize: vertical;
+    min-height: 66px;
+    background: var(--input-bg);
+    border: 1px solid var(--border);
+    color: var(--text);
+    border-radius: 4px;
+    padding: 6px;
+    font-size: 12px;
+    font-family: inherit;
+}
+#selection-comment-menu .selection-comment-input:focus {
+    border-color: var(--accent);
+    outline: none;
+}
+#selection-comment-menu .selection-comment-actions {
+    margin-top: 8px;
+    display: flex;
+    justify-content: flex-end;
+    gap: 6px;
+}
+#selection-comment-menu .selection-comment-actions button {
+    font-size: 11px;
+    padding: 2px 8px;
+}
+
 /* Line selection — drag along .ts gutter */
 .log-line.selected {
     background: var(--selection);
     box-shadow: inset 3px 0 0 var(--accent);
 }
 
-/* Copy-selection overlay button */
-.copy-btn {
+/* Copy-selection overlay actions */
+.copy-actions {
     position: absolute;
     right: 8px;
     top: 8px;
-    padding: 3px 12px;
+    display: flex;
+    gap: 6px;
+    z-index: 10;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.15s;
+}
+.copy-actions.visible { opacity: 0.95; pointer-events: auto; }
+
+.copy-btn {
+    position: static;
+    padding: 3px 10px;
     border-radius: 6px;
     border: 1px solid var(--accent);
     color: var(--accent);
@@ -504,11 +561,12 @@ button.active { background: var(--selection); border-color: var(--accent); color
     opacity: 0;
     pointer-events: none;
     transition: opacity 0.15s;
-    z-index: 10;
     font-size: 11px;
 }
-.copy-btn.visible { opacity: 0.9; pointer-events: auto; }
+.copy-btn.visible { opacity: 0.95; pointer-events: auto; }
 .copy-btn:hover   { opacity: 1; }
+.copy-mode-btn { min-width: 68px; }
+.copy-comment-btn { min-width: 78px; }
 
 mark.hl {
     background: var(--ansi-3);
