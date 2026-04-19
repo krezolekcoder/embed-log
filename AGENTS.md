@@ -4,7 +4,7 @@ Quick onboarding notes for future coding agents and humans working in `embed-log
 
 ## Project intent
 
-`embed-log` aggregates embedded-device logs from multiple sources, stores them to per-source log files, streams them live to a web UI, and accepts test-driven marker/TX injections.
+`embed-log` is a configurable log aggregation server for embedded development and CI. It ingests multiple sources (UART/UDP), merges and timestamps events, stores per-session artifacts, streams live data to a backend-configured tabs/panes UI, and supports test-driven marker/TX injection over TCP.
 
 ## Architecture at a glance
 

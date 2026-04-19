@@ -2,6 +2,8 @@
 
 Short, practical map of this repository for humans and coding agents.
 
+`embed-log` is a backend-first, configurable log aggregation system (UART/UDP + inject/TX TCP + session artifacts) with a dynamic browser UI driven by backend tabs/panes config.
+
 ## Root directories
 
 - `backend/`

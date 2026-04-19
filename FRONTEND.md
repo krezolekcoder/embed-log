@@ -1,6 +1,6 @@
 # embed-log — browser UI
 
-Live two-pane serial log viewer served by the embed-log server over HTTP and WebSocket.
+Browser UI for embed-log: a backend-configured, multi-tab log viewer that renders one or two panes per tab and streams live RX/TX events over WebSocket.
 
 ---
 
@@ -14,7 +14,7 @@ The page connects automatically to `ws://<host>:<ws-port>/ws` and streams all se
 ## File structure
 
 ```
-frontend/index.html      HTML structure — toolbar, tab bar, two panes, script tags
+frontend/index.html      HTML structure — toolbar, tab bar, pane container, script tags
 frontend/viewer.css      All styles — themes, layout, ANSI color classes
 frontend/state.js        Shared mutable state, PANES and TABS constants
 frontend/ansi.js         ANSI escape sequence parser, timestamp utility
@@ -38,12 +38,12 @@ frontend/export.js       HTML export — builds a self-contained snapshot file
  │  │            Export · Theme select · WS status)         │  │
  │  └───────────────────────────────────────────────────────┘  │
  │  ┌─────────────────────┐  ┌─────────────────────────────┐   │
- │  │  Pane: outside      │  │  Pane: inside               │   │
+ │  │  Pane: DUT_UART     │  │  Pane: SENSOR_A             │   │
  │  │  ┌───────────────┐  │  │  ┌───────────────────────┐  │   │
  │  │  │  Filter input │  │  │  │  Filter input         │  │   │
  │  │  └───────────────┘  │  │  └───────────────────────┘  │   │
  │  │  ┌───────────────┐  │  │  ┌───────────────────────┐  │   │
- │  │  │  log-outside  │  │  │  │  log-inside           │  │   │
+ │  │  │  log-DUT_UART │  │  │  │  log-SENSOR_A         │  │   │
  │  │  │  .log-line×N  │  │  │  │  .log-line×N          │  │   │
  │  │  └───────────────┘  │  │  └───────────────────────┘  │   │
  │  │  [ Serial TX input ]│  │  [ Serial TX input        ]  │   │
@@ -66,14 +66,14 @@ frontend/export.js       HTML export — builds a self-contained snapshot file
 Defines the single shared `state` object and `PANES` constant. All other scripts read and write `state` directly — no module system, intentionally simple.
 
 ```js
-const PANES = ["outside", "inside"];
+const PANES = ["DUT_UART", "SENSOR_A"]; // source IDs from backend config
 
 const state = {
     wrap, showTs, syncEnabled, fontSize,
-    filters,     // { outside: RegExp|null, inside: RegExp|null }
-    rawLines,    // { outside: Line[], inside: Line[] }
-    atBottom,    // { outside: bool, inside: bool }
-    highlighted, // { outside: div|null, inside: div|null }
+    filters,     // { DUT_UART: RegExp|null, SENSOR_A: RegExp|null }
+    rawLines,    // { DUT_UART: Line[], SENSOR_A: Line[] }
+    atBottom,    // { DUT_UART: bool, SENSOR_A: bool }
+    highlighted, // { DUT_UART: div|null, SENSOR_A: div|null }
 };
 ```
 
@@ -116,7 +116,7 @@ Wires up all toolbar buttons and interactive controls to `state` and DOM:
 ### `export.js`
 On **Export** click:
 1. Reads all current CSS variable values from the live document via `getComputedStyle` — the exported file always matches the active theme.
-2. Renders both panes (`state.rawLines`) into a self-contained HTML string with inline `<style>`.
+2. Renders all panes (`state.rawLines`) into a self-contained HTML string with inline `<style>`.
 3. Triggers a browser download as `embed-log-<ISO-timestamp>.html`.
 
 No server round-trip; the export is entirely client-side.
@@ -132,7 +132,7 @@ No server round-trip; the export is entirely client-side.
   "type":      "rx",
   "data":      "free: 62832, used: 93976",
   "timestamp": "03-25 11:50:00.011",
-  "source_id": "outside"
+  "source_id": "DUT_UART"
 }
 ```
 
@@ -141,12 +141,12 @@ No server round-trip; the export is entirely client-side.
 | `type` | `"rx"` / `"tx"` | `tx` = serial TX sent to device |
 | `data` | string | Raw text, may contain ANSI escape codes |
 | `timestamp` | `"MM-DD HH:MM:SS.mmm"` | Local time on the server |
-| `source_id` | `"outside"` / `"inside"` | Must match a pane ID in the HTML |
+| `source_id` | e.g. `"DUT_UART"`, `"SENSOR_A"` | Must match a source/pane ID from backend `tabs[*].panes` |
 
 ### Browser → server (serial TX from the UI input)
 
 ```json
-{ "cmd": "send_raw", "id": "outside", "data": "reboot\n" }
+{ "cmd": "send_raw", "id": "DUT_UART", "data": "reboot\n" }
 ```
 
 ---
@@ -177,6 +177,10 @@ The sync toggle button disables step 2–5 without removing existing highlights.
 
 ## Adding a new pane / device
 
-1. Add a `<div class="pane" id="pane-<id>">` block to `index.html` with matching filter, log area, jump button, and TX input (follow the `outside` / `inside` pattern).
-2. Add `"<id>"` to the `PANES` array in `state.js`.
-3. Configure the device with `source_id: "<id>"` in `config.yaml` or via `--device NAME PORT SOCKETPORT <id>`.
+Panes are driven by backend config (not hardcoded IDs in frontend files).
+
+1. Add a new source in YAML under `sources:` (for example `name: DUT_UART_2`).
+2. Add that source name to a tab under `tabs[*].panes`.
+3. Restart the server; the frontend receives `config` over WebSocket and builds panes dynamically.
+
+Rule: runtime `source_id` values in log events must match configured source names.

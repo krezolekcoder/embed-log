@@ -1,8 +1,48 @@
 # Installation
 
 This guide covers both:
-- **local testing now** (install from this repo)
-- **real usage later** (install from PyPI)
+- **quick project startup from this repo**
+- **packaged CLI install** (local wheel / future PyPI)
+
+`embed-log` runs as a configurable multi-source backend (UART/UDP + TCP inject/TX + session artifacts) with a browser UI whose tabs/panes are defined by backend config.
+
+---
+
+## Quick start (this project, copy/paste)
+
+From repository root:
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+
+embed-log init
+embed-log validate --config embed-log.yml
+embed-log run --config embed-log.yml
+```
+
+If `embed-log` is not on your `PATH`, use:
+
+```bash
+python3 backend/server.py init
+python3 backend/server.py validate --config embed-log.yml
+python3 backend/server.py run --config embed-log.yml
+```
+
+Or run the bundled demo config directly:
+
+```bash
+./run_demo.sh
+# optional: avoid auto-opening browser
+./run_demo.sh --no-browser
+```
+
+Default UI URL is usually:
+
+```text
+http://127.0.0.1:8080/
+```
 
 ---
 

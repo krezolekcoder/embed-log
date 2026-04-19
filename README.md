@@ -1,6 +1,10 @@
 # embed-log
 
-Serial log server for embedded device CI. Reads UART output from one or more devices, writes it to timestamped log files, exposes a TCP socket per device so that test code (pytest, Robot Framework) can inject markers and send serial TX commands, and streams everything live to a browser UI over WebSocket.
+`embed-log` is a configurable log aggregation server for embedded development and CI.
+
+It ingests logs from multiple sources (UART and UDP), merges and timestamps them, writes per-session artifacts, exposes TCP endpoints for test-driven marker/TX injection, and streams everything live to a browser UI over WebSocket.
+
+The frontend is driven by backend config (tabs + panes), so it adapts to your source layout instead of assuming fixed pane IDs.
 
 ---
 
@@ -339,7 +343,7 @@ http://127.0.0.1:8080/
 
 `run_demo.sh` prefers 8080 but may auto-select another free port in `8081..8099`.
 
-The UI streams both device panes live, supports per-pane filtering, cross-pane timestamp sync, and HTML export. It also includes:
+The UI streams all configured sources live (tabs with 1–2 panes each), supports per-pane filtering, cross-pane timestamp sync, and HTML export. It also includes:
 - **Current HTML** toolbar button (open current session export)
 - **Sessions** popup (browse/open saved session HTML files and manifests)
 
