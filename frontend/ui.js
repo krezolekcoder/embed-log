@@ -12,16 +12,6 @@ btnWrap.addEventListener("click", () => {
 });
 
 // ---------------------------------------------------------------------------
-// Toolbar — timestamps
-// ---------------------------------------------------------------------------
-const btnTs = document.getElementById("btn-ts");
-btnTs.addEventListener("click", () => {
-    state.showTs = !state.showTs;
-    btnTs.classList.toggle("active", state.showTs);
-    PANES.forEach(rerenderPane);
-});
-
-// ---------------------------------------------------------------------------
 // Settings panel — clear cached session (localStorage restore cache)
 // ---------------------------------------------------------------------------
 (function () {
@@ -53,20 +43,18 @@ btnTs.addEventListener("click", () => {
 })();
 
 // ---------------------------------------------------------------------------
-// Settings panel — sessions list popup + manual session.html save
+// Settings panel — sessions list popup + current session links
+// Save HTML action is in the main toolbar (reused former Sync button).
 // ---------------------------------------------------------------------------
 (function () {
     const panel = document.getElementById("settings-panel");
     if (!panel) return;
 
-    const sep = document.createElement("span");
-    sep.className = "set-sep";
-    sep.textContent = "|";
-
-    const btnSave = document.createElement("button");
-    btnSave.id = "btn-save-session-html";
-    btnSave.title = "Generate/refresh session HTML on backend";
-    btnSave.textContent = "Save HTML";
+    const btnSave = document.getElementById("btn-sync");
+    if (btnSave) {
+        btnSave.title = "Generate/refresh session HTML on backend";
+        btnSave.textContent = "Save HTML";
+    }
 
     const btnCurrent = document.createElement("button");
     btnCurrent.id = "btn-current-session";
@@ -78,8 +66,6 @@ btnTs.addEventListener("click", () => {
     btn.title = "Browse saved sessions";
     btn.textContent = "Sessions";
 
-    panel.appendChild(sep);
-    panel.appendChild(btnSave);
     panel.appendChild(btnCurrent);
     panel.appendChild(btn);
 
@@ -93,12 +79,14 @@ btnTs.addEventListener("click", () => {
     function updateCurrentButtons() {
         const status = currentSession?.html_status || (currentSession?.html_ready ? "ready" : "pending");
 
-        if (status === "updating") {
-            btnSave.disabled = true;
-            btnSave.textContent = "Saving…";
-        } else {
-            btnSave.disabled = false;
-            btnSave.textContent = "Save HTML";
+        if (btnSave) {
+            if (status === "updating") {
+                btnSave.disabled = true;
+                btnSave.textContent = "Saving…";
+            } else {
+                btnSave.disabled = false;
+                btnSave.textContent = "Save HTML";
+            }
         }
 
         if (currentSession?.html_ready && currentSession?.html) {
@@ -124,14 +112,16 @@ btnTs.addEventListener("click", () => {
             updateCurrentButtons();
         } catch {
             currentSession = null;
-            btnSave.disabled = true;
+            if (btnSave) btnSave.disabled = true;
             btnCurrent.disabled = true;
         }
     }
 
     async function saveCurrentSessionHtml() {
-        btnSave.disabled = true;
-        btnSave.textContent = "Saving…";
+        if (btnSave) {
+            btnSave.disabled = true;
+            btnSave.textContent = "Saving…";
+        }
         try {
             const res = await fetch("/api/session/export", {
                 method: "POST",
@@ -143,10 +133,10 @@ btnTs.addEventListener("click", () => {
                 currentSession = data.session;
             }
         } catch {
-            const prev = btnSave.textContent;
-            btnSave.textContent = "Save failed";
+            const prev = btnSave ? btnSave.textContent : "Save HTML";
+            if (btnSave) btnSave.textContent = "Save failed";
             setTimeout(() => {
-                btnSave.textContent = prev;
+                if (btnSave) btnSave.textContent = prev;
                 updateCurrentButtons();
             }, 1200);
             return;
@@ -160,7 +150,7 @@ btnTs.addEventListener("click", () => {
         window.open(currentSession.html, "_blank", "noopener");
     }
 
-    btnSave.addEventListener("click", saveCurrentSessionHtml);
+    btnSave?.addEventListener("click", saveCurrentSessionHtml);
     btnCurrent.addEventListener("click", openCurrentSessionHtml);
 
     async function loadSessions() {
@@ -274,17 +264,15 @@ btnTs.addEventListener("click", () => {
         if (menu.classList.contains("open")) loadSessions();
     };
 
+    const backendUnavailable = window.location.protocol === "file:";
+    if (backendUnavailable && btnSave) {
+        btnSave.disabled = true;
+        btnSave.textContent = "Save N/A";
+        btnSave.title = "Unavailable in offline HTML export";
+    }
+
     refreshCurrentSession();
 })();
-
-// ---------------------------------------------------------------------------
-// Toolbar — sync toggle
-// ---------------------------------------------------------------------------
-const btnSync = document.getElementById("btn-sync");
-btnSync.addEventListener("click", () => {
-    state.syncEnabled = !state.syncEnabled;
-    btnSync.classList.toggle("active", state.syncEnabled);
-});
 
 // ---------------------------------------------------------------------------
 // Toolbar — theme toggle (light/dark quick switch)

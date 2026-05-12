@@ -1,17 +1,17 @@
 # Backlog `embed-log`
 
 Cel: uporządkowany plan prac do realizacji krok po kroku.
-Status wszystkich pozycji: `TODO`.
+Status pozycji: mieszany (`TODO` / `IN PROGRESS` / `DONE`).
 
 ---
 
 ## Plan realizacji (proponowana kolejność)
 
-### Etap 1 — Krytyczne bugi i spójność eksportu (start tutaj)
-- **BL-05** Zdublowane timestampy w `session.html`
-- **BL-09** Niedziałający dark/light mode w `session.html`
-- **BL-11** Uproszczenie workflow `session.html` (zapis, statusy, eventy)
-- **BL-06** Timezone (lokalna strefa + przenośność)
+### Etap 1 — Krytyczne bugi i spójność eksportu
+- **BL-05** Zdublowane timestampy w `session.html` — `DONE`
+- **BL-09** Niedziałający dark/light mode w `session.html` — `DONE`
+- **BL-11** Uproszczenie workflow `session.html` (zapis, statusy, eventy) — `IN PROGRESS`
+- **BL-06** Timezone (lokalna strefa + przenośność) — `TODO`
 
 ### Etap 2 — Stabilność platformy i UX core
 - **BL-01** Kompatybilność Python 3.10
@@ -96,16 +96,16 @@ Status wszystkich pozycji: `TODO`.
 
 ---
 
-## BL-05 — Zdublowane systemowe timestampy w `session.html`
+## BL-05 — Zdublowane systemowe timestampy w `session.html` (`DONE`)
 - **Typ:** Bug
 - **Priorytet:** P1
 - **Obszar:** Backend + Frontend
 
 ### Taski
-- [ ] Odtworzyć błąd i wskazać źródło (backend czy render).
-- [ ] Naprawić duplikację timestampu.
-- [ ] Dodać test regresyjny eksportu HTML.
-- [ ] Sprawdzić brak wpływu na live view.
+- [x] Odtworzyć błąd i wskazać źródło (backend czy render).
+- [x] Naprawić duplikację timestampu.
+- [x] Dodać test regresyjny eksportu HTML.
+- [x] Sprawdzić brak wpływu na live view.
 
 ### DoD
 - W `session.html` jest tylko 1 systemowy timestamp na linię.
@@ -162,16 +162,16 @@ Status wszystkich pozycji: `TODO`.
 
 ---
 
-## BL-09 — W `session.html` nie działa przełączanie dark/light
+## BL-09 — W `session.html` nie działa przełączanie dark/light (`DONE`)
 - **Typ:** Bug
 - **Priorytet:** P1
 - **Obszar:** Frontend (offline viewer `session.html`)
 
 ### Taski
-- [ ] Odtworzyć błąd (motyw „zamrożony” przy eksporcie).
-- [ ] Naprawić inicjalizację i toggle motywu dla pliku offline.
-- [ ] Ustalić priorytet: zapis użytkownika vs `prefers-color-scheme` vs fallback.
-- [ ] Dodać checklistę/test regresyjny.
+- [x] Odtworzyć błąd (motyw „zamrożony” przy eksporcie).
+- [x] Naprawić inicjalizację i toggle motywu dla pliku offline.
+- [x] Ustalić priorytet: zapis użytkownika vs `prefers-color-scheme` vs fallback.
+- [x] Dodać checklistę/test regresyjny.
 
 ### DoD
 - Po eksporcie `session.html` można przełączać dark/light.
@@ -194,17 +194,17 @@ Status wszystkich pozycji: `TODO`.
 
 ---
 
-## BL-11 — Uproszczony workflow `session.html` (zapis, dostęp, statusy)
+## BL-11 — Uproszczony workflow `session.html` (zapis, dostęp, statusy) (`IN PROGRESS`)
 - **Typ:** Usprawnienie UX + funkcjonalność
 - **Priorytet:** P1
 - **Obszar:** Backend session/export/events/API + Frontend toolbar/sessions
 
 ### Taski
-- [ ] Dodać przycisk „Zapisz sesję do HTML” (jasny feedback sukces/błąd).
-- [ ] Wysyłać na WS connect stan HTML (`exists/url/updated_at`).
-- [ ] Uprościć statusy (np. `ready`, `updating`, `error`).
-- [ ] Dodać eventy WS dla utworzenia/aktualizacji HTML.
-- [ ] Uprościć otwieranie HTML i artefaktów plikowych z UI.
+- [x] Dodać przycisk „Zapisz sesję do HTML” (jasny feedback sukces/błąd).
+- [x] Wysyłać na WS connect stan HTML (`exists/url/updated_at`).
+- [x] Uprościć statusy (np. `ready`, `updating`, `error`).
+- [x] Dodać eventy WS dla utworzenia/aktualizacji HTML.
+- [x] Uprościć otwieranie HTML i artefaktów plikowych z UI.
 - [ ] Zaktualizować API kontrakty i dokumentację.
 
 ### DoD

@@ -138,9 +138,6 @@ button.active { background: var(--selection); border-color: var(--accent); color
 .log-line.line-err { color: var(--ansi-1); font-weight: 600; }  /* red    */
 /* <inf> lines are intentionally left unstyled */
 
-/* ---- Embedded (secondary) timestamp ---- */
-.emb-ts   { color: var(--ansi-0); }
-
 /* ---- File import ---- */
 .pane-body.drag-over {
     outline: 2px dashed var(--accent);
@@ -486,51 +483,6 @@ button.active { background: var(--selection); border-color: var(--accent); color
     line-height: 1.45;
 }
 
-/* Selection comment popup */
-#selection-comment-menu {
-    position: fixed;
-    z-index: 1110;
-    width: min(420px, 80vw);
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    background: var(--panel);
-    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.25);
-    padding: 8px;
-    display: none;
-}
-#selection-comment-menu.open { display: block; }
-#selection-comment-menu .selection-comment-head {
-    color: var(--accent);
-    font-size: 12px;
-    margin-bottom: 6px;
-}
-#selection-comment-menu .selection-comment-input {
-    width: 100%;
-    resize: vertical;
-    min-height: 66px;
-    background: var(--input-bg);
-    border: 1px solid var(--border);
-    color: var(--text);
-    border-radius: 4px;
-    padding: 6px;
-    font-size: 12px;
-    font-family: inherit;
-}
-#selection-comment-menu .selection-comment-input:focus {
-    border-color: var(--accent);
-    outline: none;
-}
-#selection-comment-menu .selection-comment-actions {
-    margin-top: 8px;
-    display: flex;
-    justify-content: flex-end;
-    gap: 6px;
-}
-#selection-comment-menu .selection-comment-actions button {
-    font-size: 11px;
-    padding: 2px 8px;
-}
-
 /* Line selection — drag along .ts gutter */
 .log-line.selected {
     background: var(--selection);
@@ -565,8 +517,6 @@ button.active { background: var(--selection); border-color: var(--accent); color
 }
 .copy-btn.visible { opacity: 0.95; pointer-events: auto; }
 .copy-btn:hover   { opacity: 1; }
-.copy-mode-btn { min-width: 68px; }
-.copy-comment-btn { min-width: 78px; }
 
 mark.hl {
     background: var(--ansi-3);

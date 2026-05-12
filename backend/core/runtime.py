@@ -173,6 +173,7 @@ class SourceManager:
             "type": "tx" if is_tx else "rx",
             "data": data,
             "timestamp": ts,
+            "timestamp_iso": entry.timestamp.isoformat(timespec="milliseconds"),
             "source_id": self.name,
         }
 
@@ -261,6 +262,12 @@ class SourceManager:
             "yellow",
         ))
 
+    def add_ui_clear_marker(self, scope: str = "pane") -> None:
+        marker = f"[embed-log] UI clear ({scope})"
+        self._queue.put(LogEntry(datetime.now().astimezone(), "SYSTEM", "", "cyan"))
+        self._queue.put(LogEntry(datetime.now().astimezone(), "SYSTEM", marker, "cyan"))
+        self._queue.put(LogEntry(datetime.now().astimezone(), "SYSTEM", "", "cyan"))
+
     def _ingest_json(self, raw: bytes) -> None:
         try:
             msg = json.loads(raw.decode("utf-8"))
@@ -300,6 +307,7 @@ class LogServer:
         job_id: Optional[str] = None,
         open_browser: bool = False,
         app_name: str = "embed-log",
+        theme_defaults: Optional[dict] = None,
     ):
         self._tabs = tabs
         self._session_id = session_id
@@ -308,6 +316,7 @@ class LogServer:
         self._logs_root = Path(logs_root)
         self._job_id = job_id
         self._app_name = app_name
+        self._theme_defaults = theme_defaults or {}
 
         self._source_files = {s["name"]: str(s["log_file"]) for s in sources}
         self._session = SessionManager(
@@ -341,6 +350,7 @@ class LogServer:
                 on_export_session_html=lambda: self.export_session_html("manual_ui"),
                 open_browser=open_browser,
                 app_name=app_name,
+                theme_defaults=self._theme_defaults,
             )
 
         self._broadcaster = broadcaster
@@ -453,6 +463,7 @@ class LogServer:
             self._broadcaster.stop()
 
     def run_forever(self) -> None:
+        logging.info("session timezone: %s", datetime.now().astimezone().tzname())
         self.start()
         stop_event = threading.Event()
 

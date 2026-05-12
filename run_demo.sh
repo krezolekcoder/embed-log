@@ -165,19 +165,6 @@ _free_port_if_stale() {
   return 0
 }
 
-_find_free_tcp_port() {
-  local start="$1"
-  local end="$2"
-  local p
-  for ((p=start; p<=end; p++)); do
-    if [ -z "$(_port_pids tcp "$p")" ]; then
-      echo "$p"
-      return 0
-    fi
-  done
-  return 1
-}
-
 echo "Checking demo ports..."
 for p in 5001 5002 5003; do
   _free_port_if_stale tcp "$p" || exit 1
@@ -186,16 +173,9 @@ for p in 6000 6001 6002; do
   _free_port_if_stale udp "$p" || exit 1
 done
 
-# Prefer 8080, but auto-fallback to next free port for better UX.
+# Use fixed UI port (8080 unless user overrides via CLI/config outside this script).
 WS_PORT=8080
-if ! _free_port_if_stale tcp "$WS_PORT"; then
-  echo "Port 8080 unavailable; searching fallback port..."
-  WS_PORT=$(_find_free_tcp_port 8081 8099 || true)
-  if [ -z "$WS_PORT" ]; then
-    echo "ERROR: no free fallback port in range 8081-8099"
-    exit 1
-  fi
-fi
+_free_port_if_stale tcp "$WS_PORT" || exit 1
 
 echo "Starting embed-log server (YAML config) on port $WS_PORT in -v mode..."
 if [ "$OPEN_BROWSER" = true ]; then

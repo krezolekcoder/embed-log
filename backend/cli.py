@@ -21,6 +21,8 @@ server:
   # ws_ui: /absolute/path/to/index.html
   app_name: embed-log
   open_browser: false
+  default_light_theme: whitesand
+  default_dark_theme: one-dark
   # quiet | events | full
   # quiet: warnings/errors only
   # events: connection/request/source activity logs
@@ -151,6 +153,10 @@ def _build_parser() -> argparse.ArgumentParser:
                         help="app name shown in UI top-left bar")
     parser.add_argument("--open-browser", dest="open_browser", action="store_const", const=True, default=None,
                         help="open default browser automatically when UI server starts")
+    parser.add_argument("--default-light-theme", dest="default_light_theme", default=None,
+                        help="default light palette key for frontend (e.g. whitesand)")
+    parser.add_argument("--default-dark-theme", dest="default_dark_theme", default=None,
+                        help="default dark palette key for frontend (e.g. one-dark)")
     parser.add_argument("--no-open-browser", dest="open_browser", action="store_const", const=False,
                         help="do not open browser automatically (overrides config)")
     parser.add_argument("--job-id", metavar="ID", default=None, dest="job_id",
@@ -192,7 +198,7 @@ def main(argv: Optional[list[str]] = None) -> int:
     baudrate = args.baudrate if args.baudrate is not None else cfg.get("baudrate", 115200)
     logs_root = Path(args.log_dir if args.log_dir is not None else cfg.get("log_dir", "logs/"))
     host = args.host if args.host is not None else cfg.get("host", "127.0.0.1")
-    ws_port = args.ws_port if args.ws_port is not None else cfg.get("ws_port", 0)
+    ws_port = args.ws_port if args.ws_port is not None else cfg.get("ws_port", 8080)
     ws_ui = args.ws_ui if args.ws_ui is not None else cfg.get("ws_ui", DEFAULT_WS_UI)
     app_name = args.app_name if args.app_name is not None else cfg.get("app_name", "embed-log")
     cfg_verbosity = cfg.get("verbosity")
@@ -211,6 +217,8 @@ def main(argv: Optional[list[str]] = None) -> int:
     full_verbose = verbosity == "full"
     open_browser = args.open_browser if args.open_browser is not None else cfg.get("open_browser", False)
     job_id = args.job_id if args.job_id is not None else cfg.get("job_id", None)
+    default_light_theme = args.default_light_theme if args.default_light_theme is not None else cfg.get("default_light_theme")
+    default_dark_theme = args.default_dark_theme if args.default_dark_theme is not None else cfg.get("default_dark_theme")
 
     logging.basicConfig(
         level=logging.INFO if verbosity in {"events", "full"} else logging.WARNING,
@@ -279,6 +287,8 @@ def main(argv: Optional[list[str]] = None) -> int:
         job_id=job_id,
         open_browser=open_browser,
         app_name=app_name,
+        default_light_theme=default_light_theme,
+        default_dark_theme=default_dark_theme,
     )
 
 

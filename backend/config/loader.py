@@ -158,6 +158,10 @@ def load_config(path: str | Path) -> dict:
         out["verbose"] = bool(server.get("verbose"))
     if "job_id" in server:
         out["job_id"] = _require_str(server.get("job_id"), "server.job_id")
+    if "default_light_theme" in server:
+        out["default_light_theme"] = _require_str(server.get("default_light_theme"), "server.default_light_theme")
+    if "default_dark_theme" in server:
+        out["default_dark_theme"] = _require_str(server.get("default_dark_theme"), "server.default_dark_theme")
 
     if "dir" in logs:
         out["log_dir"] = _require_str(logs.get("dir"), "logs.dir")

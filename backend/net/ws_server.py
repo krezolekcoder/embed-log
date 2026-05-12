@@ -36,6 +36,7 @@ class WebSocketBroadcaster:
         on_export_session_html: Optional[Callable[[], bool]] = None,
         open_browser: bool = False,
         app_name: str = "embed-log",
+        theme_defaults: Optional[dict] = None,
     ):
         self._html_path = Path(html_path)
         self._host = host
@@ -55,6 +56,7 @@ class WebSocketBroadcaster:
         self._stop_async: Optional[asyncio.Event] = None
         self._open_browser = open_browser
         self._app_name = app_name
+        self._theme_defaults = theme_defaults or {}
 
     def register_source(self, name: str, mgr) -> None:
         self._source_map[name] = mgr
@@ -225,6 +227,7 @@ class WebSocketBroadcaster:
             "tabs": self._tabs,
             "session": self._session_info,
             "app_name": self._app_name,
+            "theme_defaults": self._theme_defaults,
         }))
         self._clients.add(ws)
         if self._no_clients_handle is not None:
@@ -277,3 +280,20 @@ class WebSocketBroadcaster:
         if cmd == "export_session_html" and self._on_export_session_html is not None:
             logging.info("WS cmd export_session_html")
             await asyncio.to_thread(self._on_export_session_html)
+            return
+
+        if cmd == "clear_logs":
+            scope = str(msg.get("scope") or "pane")
+            pane_id = str(msg.get("id") or "")
+            if scope == "all":
+                logging.info("WS cmd clear_logs scope=all")
+                for mgr in self._source_map.values():
+                    mgr.add_ui_clear_marker("all")
+                return
+
+            if pane_id:
+                mgr = self._source_map.get(pane_id)
+                if mgr:
+                    logging.info("WS cmd clear_logs scope=pane source=%s", pane_id)
+                    mgr.add_ui_clear_marker("pane")
+                return

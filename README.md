@@ -272,6 +272,9 @@ server:
   # ws_ui: /absolute/path/to/index.html
   app_name: embed-log
   open_browser: false
+  # optional frontend palette defaults (must match keys below)
+  default_light_theme: whitesand
+  default_dark_theme: one-dark
   verbose: false
   # optional: include CI/job id in session/log naming
   # job_id: GH-12345
@@ -298,6 +301,37 @@ tabs:
   - label: Devices
     panes: [DUT_UART, SENSOR_A]
 ```
+
+### Theme defaults (optional)
+
+You can set default light/dark palettes from backend config. These are sent in the WS `config` payload and applied by the frontend on connect.
+
+```yaml
+server:
+  default_light_theme: whitesand
+  default_dark_theme: one-dark
+```
+
+Rules:
+- keys must match frontend palette keys exactly (`1:1`),
+- invalid/unknown keys are ignored,
+- fallback defaults are: `whitesand` (light), `one-dark` (dark).
+
+Available light theme keys:
+- `whitesand`
+- `github-light`
+- `solarized-light`
+- `catppuccin-latte`
+- `gruvbox-light`
+
+Available dark theme keys:
+- `one-dark`
+- `dracula`
+- `nord`
+- `monokai`
+- `tokyo-night`
+- `gruvbox-dark`
+- `catppuccin-mocha`
 
 ### Source types
 
@@ -341,7 +375,7 @@ When `--ws-port` is set (example):
 http://127.0.0.1:8080/
 ```
 
-`run_demo.sh` prefers 8080 but may auto-select another free port in `8081..8099`.
+`run_demo.sh` uses fixed port `8080` (fails if unavailable).
 
 The UI streams all configured sources live (tabs with 1–2 panes each), supports per-pane filtering, cross-pane timestamp sync, and HTML export. It also includes:
 - **Current HTML** toolbar button (open current session export)

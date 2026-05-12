@@ -5,6 +5,8 @@ server:
   ws_port: 8080
   app_name: demo
   open_browser: true
+  default_light_theme: whitesand
+  default_dark_theme: one-dark
   verbose: false
 
 logs:

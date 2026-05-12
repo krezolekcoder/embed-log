@@ -8,7 +8,6 @@ export const PANES = window.PANES ?? [...new Set(TABS.flatMap(t => t.panes))];
 export const state = {
     wrap:        false,
     showTs:      true,
-    syncEnabled: true,
     fontSize:    14,
     activeTab:   0,
     syncTs:      null,   // last-clicked numeric timestamp, persists across tab switches
@@ -17,11 +16,6 @@ export const state = {
     atBottom:    {},
     highlighted: {},
     selected:    {},
-    settings: {
-        tsFormat:     "full",   // "full" | "time" | "compact"
-        tagColors:    true,     // colorise <wrn> <dbg> <inf> <err> tags
-        embedTsStrip: false,    // hide secondary [HH:MM:SS] timestamps in content
-    },
 };
 
 // Initialise per-pane state for every pane in the system

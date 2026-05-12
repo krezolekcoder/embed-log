@@ -60,6 +60,8 @@ def run_app(
     job_id: Optional[str],
     open_browser: bool,
     app_name: str,
+    default_light_theme: Optional[str],
+    default_dark_theme: Optional[str],
 ) -> int:
     tab_label_by_source: dict[str, str] = {}
     for tab in tabs:
@@ -107,5 +109,9 @@ def run_app(
         job_id=job_id,
         open_browser=open_browser,
         app_name=app_name,
+        theme_defaults={
+            "light": default_light_theme,
+            "dark": default_dark_theme,
+        },
     ).run_forever()
     return 0

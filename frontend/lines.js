@@ -5,19 +5,11 @@ import { parseAnsi, tsToNum } from './ansi.js';
 // Line rendering
 // ---------------------------------------------------------------------------
 
-function _formatTs(ts) {
-    switch (state.settings.tsFormat) {
-        case "time":    return ts.slice(6);       // HH:MM:SS.mmm
-        case "compact": return ts.slice(6, 14);   // HH:MM:SS
-        default:        return ts;                // MM-DD HH:MM:SS.mmm
-    }
-}
 
 // parseAnsi HTML-escapes < and >, so <wrn> becomes &lt;wrn&gt; in stored HTML.
 // <inf> is intentionally excluded — it stays unstyled.
 const _LINE_TAG_RE = /&lt;(wrn|warn|dbg|debug|err|error)&gt;/i;
 function _lineTagClass(html) {
-    if (!state.settings.tagColors) return "";
     const m = _LINE_TAG_RE.exec(html);
     if (!m) return "";
     switch (m[1].toLowerCase()) {
@@ -28,20 +20,13 @@ function _lineTagClass(html) {
     }
 }
 
-// Brackets are not HTML-escaped, so [HH:MM:SS.mmm] is safe to match directly.
-const _EMB_TS_RE = /\[\d{2}:\d{2}:\d{2}(?:[.,]\d+)?\]/g;
-function _applyEmbeddedTs(html) {
-    if (!state.settings.embedTsStrip) return html;
-    return html.replace(_EMB_TS_RE, m => `<span class="emb-ts">${m}</span>`);
-}
-
 export function buildLineHtml(line, showTs, filterRx) {
     const tsClass = "ts" + (showTs ? "" : " hidden");
-    let content = _applyEmbeddedTs(line.html);
+    let content = line.html;
     if (filterRx) {
         content = content.replace(filterRx, m => `<mark class="hl">${m}</mark>`);
     }
-    return `<span class="${tsClass}">${_formatTs(line.ts)}</span>${content}`;
+    return `<span class="${tsClass}">${line.ts}</span>${content}`;
 }
 
 // Build the full className string for a log-line div, preserving selection state.
@@ -130,7 +115,10 @@ export function _linesSetupPane(id) {
         updateJumpBtn(id);
     });
     document.querySelector(`.pane-clear-btn[data-pane="${id}"]`)
-        ?.addEventListener("click", () => clearPane(id));
+        ?.addEventListener("click", () => {
+            window.wsSend?.({ cmd: "clear_logs", scope: "pane", id });
+            clearPane(id);
+        });
 }
 PANES.forEach(_linesSetupPane);
 
@@ -147,13 +135,15 @@ export function clearPane(paneId) {
     updateJumpBtn(paneId);
     // Hide copy-selection actions if selection.js has added them
     document.getElementById("copy-" + paneId)?.classList.remove("visible");
-    document.getElementById("copy-mode-" + paneId)?.classList.remove("visible");
-    document.getElementById("copy-comment-" + paneId)?.classList.remove("visible");
+    document.getElementById("copy-add-" + paneId)?.classList.remove("visible");
     document.getElementById("copy-actions-" + paneId)?.classList.remove("visible");
     window.__embedLogSchedulePersist?.();
 }
 
-document.getElementById("btn-clear").addEventListener("click", () => PANES.forEach(clearPane));
+document.getElementById("btn-clear").addEventListener("click", () => {
+    window.wsSend?.({ cmd: "clear_logs", scope: "all" });
+    PANES.forEach(clearPane);
+});
 
 // ---------------------------------------------------------------------------
 // Sync
@@ -210,7 +200,7 @@ export function onMiddleClick(paneId, numTs, div) {
 
     state.syncTs = numTs;
     highlightLine(paneId, div);
-    if (state.syncEnabled) syncPanes(paneId, numTs, div);
+    syncPanes(paneId, numTs, div);
 }
 
 // Click handler:
@@ -233,8 +223,7 @@ export function onLineClick(paneId, numTs, div) {
 
     state.syncTs = numTs;
     highlightLine(paneId, div);
-
-    if (state.syncEnabled) syncPanes(paneId, numTs, div);
+    syncPanes(paneId, numTs, div);
 }
 
 // Sync all OTHER panes in the active tab to numTs, mirroring the clicked

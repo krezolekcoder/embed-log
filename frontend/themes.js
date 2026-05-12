@@ -40,6 +40,14 @@ const LIGHT_PALETTES = [
 const DEFAULT_LIGHT = "whitesand";
 const DEFAULT_DARK = "one-dark";
 
+function _isValidLight(key) {
+    return LIGHT_PALETTES.some(p => p.key === key);
+}
+
+function _isValidDark(key) {
+    return DARK_PALETTES.some(p => p.key === key);
+}
+
 let _mode = document.documentElement.getAttribute("data-theme") === "whitesand" ? "light" : "dark";
 let _lightKey = DEFAULT_LIGHT;
 let _darkKey = DEFAULT_DARK;
@@ -97,6 +105,23 @@ function _toggle() {
     _setMode(_mode === "dark" ? "light" : "dark");
 }
 
+function _applyDefaultsFromBackend(defaults) {
+    if (!defaults || typeof defaults !== "object") return;
+    const light = typeof defaults.light === "string" ? defaults.light : "";
+    const dark = typeof defaults.dark === "string" ? defaults.dark : "";
+
+    let changed = false;
+    if (light && _isValidLight(light)) {
+        _lightKey = light;
+        changed = true;
+    }
+    if (dark && _isValidDark(dark)) {
+        _darkKey = dark;
+        changed = true;
+    }
+    if (changed) _applyCurrent();
+}
+
 window.__embedLogTheme = {
     toggle: _toggle,
     isDark: () => _mode === "dark",
@@ -109,6 +134,7 @@ window.__embedLogTheme = {
     },
     setDarkPalette: _setDarkPalette,
     setLightPalette: _setLightPalette,
+    applyDefaults: _applyDefaultsFromBackend,
 };
 
 function _makeSelect(items, selectedKey) {

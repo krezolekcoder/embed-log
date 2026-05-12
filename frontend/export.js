@@ -168,8 +168,7 @@ async function exportToHtml() {
 <div id="toolbar">
     <span class="app-name">embed-log</span>
     <button id="btn-wrap"     title="Toggle word wrap">Wrap</button>
-    <button id="btn-ts"       title="Toggle timestamps" class="active">Time</button>
-    <button id="btn-sync"     title="Click a line to sync the other pane to the same timestamp" class="active">Sync</button>
+    <button id="btn-sync"     title="Generate/refresh session HTML on backend">Save HTML</button>
     <div class="sep"></div>
     <button id="btn-clear"    title="Clear all panes">Clear</button>
     <button id="btn-export"   title="Export current tab to a self-contained HTML file">Export</button>

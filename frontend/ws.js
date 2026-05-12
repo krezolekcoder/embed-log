@@ -70,6 +70,7 @@ function wsConnect() {
                 const appNameEl = document.querySelector("#toolbar .app-name");
                 if (appNameEl) appNameEl.textContent = msg.app_name.trim();
             }
+            window.__embedLogTheme?.applyDefaults?.(msg.theme_defaults);
 
             const sessionId = msg.session?.id || null;
             const isSessionChange = currentSessionId && sessionId && currentSessionId !== sessionId;

@@ -12,17 +12,15 @@ export function renderTabBar() {
 
     bar.innerHTML = "";
 
-    // Tab buttons — only rendered when there is more than one tab
-    if (TABS.length > 1) {
-        TABS.forEach((tab, idx) => {
-            const btn = document.createElement("button");
-            btn.className = "tab-btn" + (idx === state.activeTab ? " active" : "");
-            btn.textContent = tab.label;
-            btn.dataset.tabIdx = String(idx);
-            btn.addEventListener("click", () => switchTab(idx));
-            bar.appendChild(btn);
-        });
-    }
+    // Tab buttons — always render, even for a single tab.
+    TABS.forEach((tab, idx) => {
+        const btn = document.createElement("button");
+        btn.className = "tab-btn" + (idx === state.activeTab ? " active" : "");
+        btn.textContent = tab.label;
+        btn.dataset.tabIdx = String(idx);
+        btn.addEventListener("click", () => switchTab(idx));
+        bar.appendChild(btn);
+    });
 
     // "+" button — always present
     const addBtn = document.createElement("button");
@@ -58,13 +56,13 @@ export function switchTab(newIdx) {
 
     // Scroll the new tab's panes to the last synced timestamp so the user
     // lands in the right context without having to click again.
-    if (state.syncTs !== null && state.syncEnabled) {
+    if (state.syncTs !== null) {
         TABS[newIdx].panes.forEach(paneId => scrollPaneToTs(paneId, state.syncTs));
     }
 
-    // Update active button
-    document.querySelectorAll("#tab-bar .tab-btn").forEach((btn, idx) => {
-        btn.classList.toggle("active", idx === newIdx);
+    // Update active button (ignore + button)
+    document.querySelectorAll("#tab-bar .tab-btn[data-tab-idx]").forEach(btn => {
+        btn.classList.toggle("active", Number(btn.dataset.tabIdx) === newIdx);
     });
 }
 
