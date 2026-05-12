@@ -106,27 +106,31 @@ def _parse_line(raw: str):
     "\x1b[36m[2026-... ] ... \x1b[0m". We strip only the ANSI *prefix* for
     timestamp detection, keeping the rest of the line intact.
     """
-    raw = _RE_ANSI_PREFIX.sub("", raw)
+    ansi_prefix = ""
+    m_ansi = _RE_ANSI_PREFIX.match(raw)
+    if m_ansi:
+        ansi_prefix = m_ansi.group(0)
+        raw = raw[m_ansi.end():]
 
     m = _RE_FULL_ISO_BRACKET.match(raw)
     if m:
-        return (f"{m[2]}-{m[3]} {m[4]}:{m[5]}:{m[6]}.{_ms3(m[7])}", m[8])
+        return (f"{m[2]}-{m[3]} {m[4]}:{m[5]}:{m[6]}.{_ms3(m[7])}", ansi_prefix + m[8])
 
     m = _RE_SHORT_SPACE_BRACKET.match(raw)
     if m:
-        return (f"{m[1]}-{m[2]} {m[3]}:{m[4]}:{m[5]}.{_ms3(m[6])}", m[7])
+        return (f"{m[1]}-{m[2]} {m[3]}:{m[4]}:{m[5]}.{_ms3(m[6])}", ansi_prefix + m[7])
 
     m = _RE_SHORT_ISO_BRACKET.match(raw)
     if m:
-        return (f"{m[1]}-{m[2]} {m[3]}:{m[4]}:{m[5]}.{_ms3(m[6])}", m[7])
+        return (f"{m[1]}-{m[2]} {m[3]}:{m[4]}:{m[5]}.{_ms3(m[6])}", ansi_prefix + m[7])
 
     m = _RE_BARE_ISO.match(raw)
     if m:
-        return (f"{m[2]}-{m[3]} {m[4]}:{m[5]}:{m[6]}.{_ms3(m[7])}", m[8])
+        return (f"{m[2]}-{m[3]} {m[4]}:{m[5]}:{m[6]}.{_ms3(m[7])}", ansi_prefix + m[8])
 
     m = _RE_SPACE_ISO.match(raw)
     if m:
-        return (f"{m[2]}-{m[3]} {m[4]}:{m[5]}:{m[6]}.{_ms3(m[7])}", m[8])
+        return (f"{m[2]}-{m[3]} {m[4]}:{m[5]}:{m[6]}.{_ms3(m[7])}", ansi_prefix + m[8])
 
     return None
 
@@ -362,8 +366,7 @@ def generate_html(tab_specs: list) -> str:
 <div id="toolbar">
     <span class="app-name">embed-log</span>
     <button id="btn-wrap"     title="Toggle word wrap">Wrap</button>
-    <button id="btn-ts"       title="Toggle timestamps" class="active">Time</button>
-    <button id="btn-sync"     title="Click a line to sync the other pane to the same timestamp" class="active">Sync</button>
+    <button id="btn-sync"     title="Generate/refresh session HTML on backend">Save HTML</button>
     <div class="sep"></div>
     <button id="btn-font-dec" title="Decrease font size">A-</button>
     <button id="btn-font-inc" title="Increase font size">A+</button>

@@ -42,8 +42,34 @@ fi
 echo "Using $PY (version ${PY_VER})"
 
 if ! have_cmd pipx; then
-  echo "Installing pipx..."
-  "$PY" -m pip install --user --upgrade pipx
+  echo "pipx not found. Trying installation..."
+
+  # macOS/Homebrew Python often enforces PEP 668 (externally-managed env),
+  # so prefer Homebrew pipx when available.
+  if have_cmd brew; then
+    echo "Installing pipx via Homebrew..."
+    brew install pipx
+  elif have_cmd apt-get; then
+    echo "Ubuntu/Debian detected. Install pipx + venv first:"
+    echo "  sudo apt update && sudo apt install -y pipx python3-venv"
+    echo "Then run this script again:"
+    echo "  ./install.sh"
+    exit 1
+  else
+    # Fallback for non-brew systems.
+    if ! "$PY" -m pip install --user --upgrade pipx; then
+      echo "ERROR: failed to install pipx via pip."
+      echo "Install pipx manually and rerun:"
+      echo "  python3 -m pip install --user pipx"
+      exit 1
+    fi
+  fi
+fi
+
+if ! have_cmd pipx; then
+  echo "ERROR: pipx still not available in PATH."
+  echo "Open a new terminal and run again, or install pipx manually."
+  exit 1
 fi
 
 echo "Ensuring pipx PATH..."

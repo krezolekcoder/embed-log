@@ -37,14 +37,15 @@ def _slug(value: str) -> str:
 
 
 class LogEntry:
-    __slots__ = ("timestamp", "source", "message", "color")
+    __slots__ = ("timestamp", "source", "message", "color", "no_ws")
 
     def __init__(self, timestamp: datetime, source: str, message: str,
-                 color: Optional[str] = None):
+                 color: Optional[str] = None, no_ws: bool = False):
         self.timestamp = timestamp
         self.source = source
         self.message = message
         self.color = color
+        self.no_ws = no_ws
 
 
 class SourceManager:
@@ -199,7 +200,7 @@ class SourceManager:
                     print(line, flush=True)
                 f.write(line + "\n")
                 f.flush()
-                if self.broadcaster:
+                if self.broadcaster and not entry.no_ws:
                     self.broadcaster.broadcast(self._ws_payload(entry))
                 self._stream_to_clients(self._stream_payload(entry))
                 if entry.source == "SERIAL":
@@ -264,9 +265,9 @@ class SourceManager:
 
     def add_ui_clear_marker(self, scope: str = "pane") -> None:
         marker = f"[embed-log] UI clear ({scope})"
-        self._queue.put(LogEntry(datetime.now().astimezone(), "SYSTEM", "", "cyan"))
-        self._queue.put(LogEntry(datetime.now().astimezone(), "SYSTEM", marker, "cyan"))
-        self._queue.put(LogEntry(datetime.now().astimezone(), "SYSTEM", "", "cyan"))
+        self._queue.put(LogEntry(datetime.now().astimezone(), "SYSTEM", "", "cyan", no_ws=True))
+        self._queue.put(LogEntry(datetime.now().astimezone(), "SYSTEM", marker, "cyan", no_ws=True))
+        self._queue.put(LogEntry(datetime.now().astimezone(), "SYSTEM", "", "cyan", no_ws=True))
 
     def _ingest_json(self, raw: bytes) -> None:
         try:
