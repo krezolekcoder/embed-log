@@ -8,7 +8,23 @@ This guide covers both:
 
 ---
 
-## Quick start (this project, copy/paste)
+## Quick start (one-command global install)
+
+From repository root:
+
+```bash
+./install.sh
+```
+
+After install, `embed-log` is available globally (via `pipx`), no manual `venv` activation needed.
+
+```bash
+embed-log init
+embed-log validate --config embed-log.yml
+embed-log run --config embed-log.yml
+```
+
+## Quick start (project venv, developer mode)
 
 From repository root:
 
