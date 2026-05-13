@@ -3,7 +3,7 @@ set -euo pipefail
 
 cd "$(dirname "$0")"
 
-MIN_PY="3.11"
+MIN_PY="3.10"
 
 have_cmd() { command -v "$1" >/dev/null 2>&1; }
 
@@ -18,7 +18,7 @@ pick_python() {
 }
 
 ver_ge() {
-  # ver_ge 3.11 3.10 -> true
+  # ver_ge 3.10 3.10 -> true
   [ "$(printf '%s\n' "$1" "$2" | sort -V | tail -n1)" = "$1" ]
 }
 
