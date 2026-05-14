@@ -4,6 +4,7 @@ import argparse
 import json
 import re
 import shutil
+from collections import Counter, defaultdict
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -50,6 +51,53 @@ def _compact_line(line: LogLine, *, include_source: bool, time_format: str) -> s
     if text:
         parts.append(text)
     return " ".join(parts)
+
+
+def _message_only(line: LogLine) -> str:
+    text = _compact_line(line, include_source=False, time_format="time")
+    return re.sub(r"^\[[^\]]+\]\s*", "", text).strip()
+
+
+def _severity(line: LogLine) -> str:
+    msg = _message_only(line).lower()
+    if re.search(r"<\s*(err|error)\s*>", msg):
+        return "error"
+    if re.search(r"<\s*(wrn|warn|warning)\s*>", msg):
+        return "warning"
+    if re.search(r"<\s*(dbg|debug)\s*>", msg):
+        return "debug"
+    if re.search(r"<\s*(inf|info)\s*>", msg):
+        return "info"
+    if re.search(r"\berror\b|\berr\b|hardfault|\bfault\b|panic|assert(?:ion)? failed", msg):
+        return "error"
+    if re.search(r"\bwarn(?:ing)?\b|\bwrn\b", msg):
+        return "warning"
+    if re.search(r"\bdebug\b|\bdbg\b", msg):
+        return "debug"
+    if re.search(r"\binfo\b|\binf\b", msg):
+        return "info"
+    return "other"
+
+
+def _event_kind(line: LogLine) -> Optional[str]:
+    msg = _message_only(line).lower()
+    if _severity(line) in {"error", "warning"}:
+        return _severity(line)
+    if re.search(r"reboot|restart|reset|boot sequence|bootloader|watchdog|brownout|power on", msg):
+        return "transition"
+    if re.search(r"drop(?:ped)?|lost|overflow|overrun|queue full|near capacity", msg):
+        return "dropped"
+    if re.search(r"\btx\b|\[tx", msg):
+        return "tx"
+    return None
+
+
+def _normalize_msg(line: LogLine) -> str:
+    msg = _message_only(line).lower()
+    msg = re.sub(r"0x[0-9a-f]+", "0x*", msg)
+    msg = re.sub(r"\b\d+(?:\.\d+)?\b", "*", msg)
+    msg = re.sub(r"\s+", " ", msg).strip()
+    return msg
 
 
 def _parse_ts(text: str) -> Optional[datetime]:
@@ -197,7 +245,90 @@ def _in_windows(ts: datetime, windows: list[tuple[datetime, datetime]]) -> bool:
     return any(start <= ts <= end for start, end in windows)
 
 
-def _write_outputs(out_dir: Path, session_dir: Path, manifest: dict, files: dict[str, Path], lines: list[LogLine], windows: list[tuple[datetime, datetime]], *, raw: bool, time_format: str) -> None:
+def _write_analysis(out_dir: Path, lines: list[LogLine], *, grep: Optional[str], ignore_case: bool, before: Optional[timedelta], after: Optional[timedelta], time_format: str) -> None:
+    analysis = out_dir / "analysis"
+    analysis.mkdir(parents=True, exist_ok=True)
+
+    # severity index
+    sev_items = [{"ts": l.ts.isoformat(), "time": _format_ts(l.ts, time_format), "source": l.source, "severity": _severity(l), "message": _message_only(l)} for l in lines]
+    sev_counts = Counter(i["severity"] for i in sev_items)
+    important = [i for i in sev_items if i["severity"] in {"error", "warning"}]
+    (analysis / "severity.json").write_text(json.dumps({"counts": dict(sev_counts), "items": important}, indent=2), encoding="utf-8")
+    md = ["# Severity index", "", "## Counts", ""] + [f"- {k}: {v}" for k, v in sorted(sev_counts.items())]
+    md += ["", "## Errors / warnings", ""] + [f"- `{i['time']}` [{i['source']}] {i['severity']}: {i['message']}" for i in important[:500]]
+    (analysis / "severity.md").write_text("\n".join(md) + "\n", encoding="utf-8")
+
+    # repetition clusters
+    groups: dict[str, list[LogLine]] = defaultdict(list)
+    for l in lines:
+        groups[_normalize_msg(l)].append(l)
+    clusters = []
+    for key, vals in groups.items():
+        if len(vals) < 2:
+            continue
+        vals = sorted(vals, key=lambda x: x.ts)
+        clusters.append({"pattern": key, "count": len(vals), "first": vals[0].ts.isoformat(), "last": vals[-1].ts.isoformat(), "sources": sorted({v.source for v in vals}), "example": _message_only(vals[0])})
+    clusters.sort(key=lambda c: c["count"], reverse=True)
+    (analysis / "repetition.json").write_text(json.dumps({"clusters": clusters}, indent=2), encoding="utf-8")
+    md = ["# Repetition clusters", ""] + [f"- x{c['count']} `{c['first']}` → `{c['last']}` sources={','.join(c['sources'])}: {c['example']}" for c in clusters[:100]]
+    (analysis / "repetition.md").write_text("\n".join(md) + "\n", encoding="utf-8")
+
+    # derived timeline
+    timeline = []
+    for l in lines:
+        kind = _event_kind(l)
+        if kind:
+            timeline.append({"ts": l.ts.isoformat(), "time": _format_ts(l.ts, time_format), "source": l.source, "kind": kind, "severity": _severity(l), "message": _message_only(l)})
+    (analysis / "timeline.json").write_text(json.dumps({"events": timeline}, indent=2), encoding="utf-8")
+    md = ["# Derived timeline", ""] + [f"- `{e['time']}` [{e['source']}] {e['kind']}: {e['message']}" for e in timeline[:1000]]
+    (analysis / "timeline.md").write_text("\n".join(md) + "\n", encoding="utf-8")
+
+    # anchors for --grep
+    if grep:
+        rx = re.compile(grep, re.I if ignore_case else 0)
+        b = before or timedelta(minutes=2)
+        a = after or timedelta(minutes=2)
+        anchors = []
+        for idx, l in enumerate(lines):
+            if not rx.search(_strip_ansi(l.text)):
+                continue
+            ctx = [x for x in lines if l.ts - b <= x.ts <= l.ts + a]
+            anchors.append({"anchor": {"ts": l.ts.isoformat(), "source": l.source, "message": _message_only(l)}, "context": [{"ts": x.ts.isoformat(), "source": x.source, "message": _message_only(x)} for x in ctx]})
+        (analysis / "anchors.json").write_text(json.dumps({"grep": grep, "anchors": anchors}, indent=2), encoding="utf-8")
+        md = [f"# Anchors: `{grep}`", ""]
+        for n, item in enumerate(anchors, 1):
+            anc = item["anchor"]
+            md += [f"## Anchor {n}: `{anc['ts']}` [{anc['source']}] {anc['message']}", ""]
+            md += [f"- `{c['ts']}` [{c['source']}] {c['message']}" for c in item["context"]]
+            md += [""]
+        (analysis / "anchors.md").write_text("\n".join(md), encoding="utf-8")
+
+    # incident windows: simple clustering of problematic events
+    problem = [l for l in lines if _event_kind(l) in {"error", "warning", "dropped", "transition"}]
+    incidents = []
+    if problem:
+        cur = [problem[0]]
+        for l in problem[1:]:
+            if l.ts - cur[-1].ts <= timedelta(minutes=2):
+                cur.append(l)
+            else:
+                incidents.append(cur); cur = [l]
+        incidents.append(cur)
+    incident_objs = []
+    for grp in incidents:
+        if len(grp) < 2 and _severity(grp[0]) not in {"error", "warning"}:
+            continue
+        kinds = Counter(_event_kind(x) or "other" for x in grp)
+        incident_objs.append({"start": grp[0].ts.isoformat(), "end": grp[-1].ts.isoformat(), "sources": sorted({x.source for x in grp}), "signals": dict(kinds), "examples": [_message_only(x) for x in grp[:10]]})
+    (analysis / "incidents.json").write_text(json.dumps({"incidents": incident_objs}, indent=2), encoding="utf-8")
+    md = ["# Incident summary", ""]
+    for n, inc in enumerate(incident_objs, 1):
+        md += [f"## Incident {n}: `{inc['start']}` → `{inc['end']}`", f"- sources: {', '.join(inc['sources'])}", f"- signals: {inc['signals']}", "- examples:"]
+        md += [f"  - {x}" for x in inc["examples"]] + [""]
+    (analysis / "incidents.md").write_text("\n".join(md) + "\n", encoding="utf-8")
+
+
+def _write_outputs(out_dir: Path, session_dir: Path, manifest: dict, files: dict[str, Path], lines: list[LogLine], windows: list[tuple[datetime, datetime]], *, raw: bool, time_format: str, grep: Optional[str], ignore_case: bool, before: Optional[timedelta], after: Optional[timedelta]) -> None:
     out_dir.mkdir(parents=True, exist_ok=True)
     selected = [line for line in lines if _in_windows(line.ts, windows)]
     by_source = {source: [] for source in files}
@@ -245,7 +376,9 @@ def _write_outputs(out_dir: Path, session_dir: Path, manifest: dict, files: dict
     summary += ["", "## Sources"]
     summary += [f"- `{src}`: {len(by_source.get(src, []))} lines → `{src}.log`" for src in sorted(files)]
     summary += ["", "## Combined", "", "- `combined.log` — all selected lines sorted by timestamp"]
+    summary += ["", "## Analysis", "", "- `analysis/severity.md` — counts and error/warning index", "- `analysis/repetition.md` — repeated message clusters", "- `analysis/timeline.md` — derived important-event timeline", "- `analysis/incidents.md` — heuristic incident windows", "- `analysis/anchors.md` — grep neighborhoods, only when `--grep` is used"]
     (out_dir / "summary.md").write_text("\n".join(summary) + "\n", encoding="utf-8")
+    _write_analysis(out_dir, selected_sorted, grep=grep, ignore_case=ignore_case, before=before, after=after, time_format=time_format)
 
 
 def run_slice(argv: list[str]) -> int:
@@ -281,7 +414,7 @@ def run_slice(argv: list[str]) -> int:
     lines = _read_lines(files)
     windows = _windows_from_args(args, lines)
     out_dir = Path(args.output) if args.output else _default_output_dir(session_dir)
-    _write_outputs(out_dir, session_dir, manifest, files, lines, windows, raw=args.raw, time_format=args.time_format)
+    _write_outputs(out_dir, session_dir, manifest, files, lines, windows, raw=args.raw, time_format=args.time_format, grep=args.grep, ignore_case=args.ignore_case, before=args.before, after=args.after)
 
     print(f"Session: {session_dir}")
     print(f"Output:  {out_dir}")

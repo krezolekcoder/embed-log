@@ -176,6 +176,11 @@ The command writes:
 - `<SOURCE>.log` — selected lines per source
 - `summary.md` — slice summary for humans/agents
 - `manifest.json` — slice metadata
+- `analysis/severity.md|json` — counts and index of errors/warnings
+- `analysis/repetition.md|json` — repeated message clusters with first/last seen
+- `analysis/timeline.md|json` — derived timeline of important events
+- `analysis/incidents.md|json` — heuristic incident windows
+- `analysis/anchors.md|json` — grouped context around `--grep` matches
 
 ## Output files
 
