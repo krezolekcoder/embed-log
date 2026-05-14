@@ -29,6 +29,31 @@ embed-log --help
 
 If your shell cannot find it, open a new terminal window or refresh your `PATH`.
 
+## Update / reinstall
+
+To update an existing installation, get the latest repository version and run the installer again:
+
+```bash
+cd embed-log
+git pull
+./install.sh
+```
+
+If you do not have the repository locally anymore, clone it again and run the installer:
+
+```bash
+git clone <repo-url>
+cd embed-log
+./install.sh
+```
+
+After updating, force-refresh the browser UI to avoid using cached frontend files:
+
+- macOS: `Cmd + Shift + R`
+- Windows/Linux: `Ctrl + Shift + R` or `Ctrl + F5`
+
+This is especially important in Firefox, where old JavaScript/CSS files may remain cached after an update.
+
 ## Configuration
 
 Copy the example config and adjust the ports/sources:
