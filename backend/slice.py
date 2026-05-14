@@ -40,6 +40,9 @@ def _compact_line(line: LogLine, *, include_source: bool, time_format: str) -> s
     # Drop redundant source tags from per-line payload; the file name or
     # combined.log prefix already identifies the source.
     text = text.replace(f"[{line.source}]", "")
+    source_variants = {line.source, line.source.replace("-", "_"), line.source.replace("_", "-")}
+    for variant in source_variants:
+        text = re.sub(r"\[" + re.escape(variant) + r"\]", "", text, flags=re.I)
     text = re.sub(r"\s+", " ", text).strip()
     parts = [f"[{_format_ts(line.ts, time_format)}]"]
     if include_source:

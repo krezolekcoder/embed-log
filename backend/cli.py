@@ -8,6 +8,7 @@ from typing import Optional
 
 from .app import DEFAULT_WS_UI, parse_source, run_app
 from .config import ConfigError, load_config
+from .parse import run_parse
 from .slice import run_slice
 from .sources import LogSource
 
@@ -110,6 +111,7 @@ def _build_parser() -> argparse.ArgumentParser:
             "  embed-log validate --config embed-log.yml\n"
             "  embed-log run --config embed-log.yml\n"
             "  embed-log slice --config embed-log.yml --last 10m\n"
+            "  embed-log parse session.html --output parsed-session\n"
             "  python backend/server.py --config embed-log.yml\n"
             "  python backend/server.py --source DEVICE_A uart:/dev/ttyUSB0 --inject DEVICE_A 5001"
         ),
@@ -181,6 +183,8 @@ def main(argv: Optional[list[str]] = None) -> int:
         return _run_validate(argv[1:])
     if argv and argv[0] == "slice":
         return run_slice(argv[1:])
+    if argv and argv[0] == "parse":
+        return run_parse(argv[1:])
     if argv and argv[0] == "run":
         argv = argv[1:]
 

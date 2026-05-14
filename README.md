@@ -130,6 +130,20 @@ embed-log --config my-embed-log.yml --open-browser
 embed-log --config my-embed-log.yml --verbosity events
 ```
 
+## Parsing exported HTML
+
+If you received an exported `session.html`, convert it back into a session directory first:
+
+```bash
+embed-log parse session.html --output parsed-session
+```
+
+Then use slicing on the parsed session:
+
+```bash
+embed-log slice parsed-session --last 10m
+```
+
 ## Slicing logs for analysis
 
 Use `embed-log slice` to extract smaller, timestamp-based log files from a session. If you do not pass a session directory, the newest session from `logs.dir` in the config is used.
