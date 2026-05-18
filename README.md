@@ -9,6 +9,7 @@
 - YAML-configured UI layout: tabs and panes per source
 - per-session logs and artifacts in `logs/<session_id>/`
 - automatic session export to `session.html`
+- clean session rotation from the UI (`Clean session` button)
 - session manifest: `manifest.json`
 - optional TCP ports for inject/TX and raw RX forwarding
 - CLI for config initialization, validation, and running the app
@@ -181,6 +182,10 @@ The command writes:
 - `analysis/timeline.md|json` — derived timeline of important events
 - `analysis/incidents.md|json` — heuristic incident windows
 - `analysis/anchors.md|json` — grouped context around `--grep` matches
+
+## Clean session rotation
+
+In the live UI, use **Clean session** to close the current session and start a new empty one without restarting the server. The old session is saved/exported to `session.html`, source log files are rotated to a new session directory, and the browser view is cleared.
 
 ## Output files
 
